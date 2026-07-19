@@ -30,7 +30,7 @@ export function DirectionalPanel({
   minDuration = 1,
   latestSpot,
   stakePresets, minStake,
-  payoutFor, format, formatSpot,
+  payoutFor, rejectReasonFor, format, formatSpot,
   onTrade, placing, openPositions,
 }: {
   currency: string;
@@ -48,6 +48,7 @@ export function DirectionalPanel({
   stakePresets: number[];
   minStake: number;
   payoutFor: (side: DirSide) => number;
+  rejectReasonFor?: (side: DirSide) => string | null;
   format: (v: number) => string;
   formatSpot: (v: number) => string;
   onTrade: (side: DirSide) => void;
@@ -59,7 +60,7 @@ export function DirectionalPanel({
   const offsetStep = Math.max(minBarrierOffset, Math.round(latestSpot * 0.0003 * 100) / 100);
   // Keep the barrier inside the fair band (see maxBarrierOffset). Anything past
   // it prices out of range and the server rejects it, so we never let the UI go there.
-  // Also enforce the server min distance (0.05% of spot) so Buy never hits the gate.
+  // Also enforce the server min distance (0.1% of spot) so Buy never hits the gate.
   const clampOffset = (v: number) => {
     const capped = Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
     if (capped === 0) return minBarrierOffset;
@@ -67,6 +68,13 @@ export function DirectionalPanel({
     return capped;
   };
   const barrier = latestSpot + barrierOffset;
+  const reasonFor = rejectReasonFor ?? (() => null);
+  const barrierHint = sides.map(reasonFor).find((r) => r && r !== "Pricing…") ?? null;
+  const payoutLabel = (side: DirSide) => {
+    const reason = reasonFor(side);
+    if (reason) return reason;
+    return format(payoutFor(side));
+  };
 
   useEffect(() => {
     if (duration < minDuration) setDuration(minDuration);
@@ -104,7 +112,7 @@ export function DirectionalPanel({
         latestSpot={latestSpot}
         offsetStep={offsetStep}
         stakePresets={stakePresets} minStake={minStake}
-        payoutFor={payoutFor} format={format} formatSpot={formatSpot}
+        payoutFor={payoutFor} rejectReasonFor={reasonFor} format={format} formatSpot={formatSpot}
         onTrade={onTrade} placing={placing} openPositions={openPositions}
       />
 
@@ -151,7 +159,7 @@ export function DirectionalPanel({
           </div>
         </div>
 
-        {/* Barrier — Higher/Lower only */}
+        {/* Barrier — Higher/Lower / Touch */}
         {needsBarrier && (
           <div className={`${CARD} flex items-center gap-2 sm:block`}>
             <div className="flex w-[72px] shrink-0 items-center justify-center text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">
@@ -183,17 +191,29 @@ export function DirectionalPanel({
 
         {/* Payout preview */}
         <div className={`${CARD} grid grid-cols-3 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
-          {sides.map((side) => (
-            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
-              <span className="block truncate font-bold text-slate-400 sm:inline">{sideLabel(side)}</span>
-              <span className="block truncate font-black text-white sm:inline">{format(payoutFor(side))}</span>
-            </div>
-          ))}
+          {sides.map((side) => {
+            const reason = reasonFor(side);
+            return (
+              <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+                <span className="block truncate font-bold text-slate-400 sm:inline">{sideLabel(side)}</span>
+                <span className={`block truncate font-black sm:inline ${reason ? "text-slate-500" : "text-white"}`}>
+                  {payoutLabel(side)}
+                </span>
+              </div>
+            );
+          })}
           <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.06] sm:bg-transparent sm:p-0 sm:pt-2">
             <span className="block truncate font-bold text-slate-400 sm:inline">Spot</span>
             <span className="block truncate font-mono font-black text-sky-300 sm:inline">{formatSpot(latestSpot)}</span>
           </div>
         </div>
+
+        {/* Calm availability note — never a red Trade-failed toast. */}
+        {barrierHint && (
+          <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+            {barrierHint}
+          </p>
+        )}
       </div>
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
@@ -202,16 +222,27 @@ export function DirectionalPanel({
       <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
         {sides.map((side) => {
           const isRed = RED_SIDES.has(side);
+          const reason = reasonFor(side);
+          const disabled = !!reason || placing;
           return (
-            <button key={side} type="button" onClick={() => onTrade(side)} aria-busy={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
-                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
-              }`}>
+            <button
+              key={side}
+              type="button"
+              onClick={() => onTrade(side)}
+              disabled={disabled}
+              title={reason ?? undefined}
+              aria-busy={placing}
+              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
+              }`}
+            >
               <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
                 <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
                 {sideLabel(side)}
               </span>
-              <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
+              <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
+                {payoutLabel(side)}
+              </span>
             </button>
           );
         })}
@@ -231,7 +262,7 @@ function MobileDirectional({
   durationUnit, setDurationUnit, secPerTick,
   barrierOffset, setBarrierOffset, maxBarrierOffset, minBarrierOffset = 0.01, minDuration = 1,
   needsBarrier, barrier, latestSpot, offsetStep,
-  stakePresets, minStake, payoutFor, format, formatSpot,
+  stakePresets, minStake, payoutFor, rejectReasonFor, format, formatSpot,
   onTrade, placing, openPositions,
 }: {
   currency: string;
@@ -253,6 +284,7 @@ function MobileDirectional({
   stakePresets: number[];
   minStake: number;
   payoutFor: (side: DirSide) => number;
+  rejectReasonFor: (side: DirSide) => string | null;
   format: (v: number) => string;
   formatSpot: (v: number) => string;
   onTrade: (side: DirSide) => void;
@@ -260,6 +292,8 @@ function MobileDirectional({
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
+  const selectedReason = rejectReasonFor(selectedSide);
+  const buyDisabled = !!selectedReason || placing;
   const { convert, currency: cc } = useCurrency();
   const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [picker, setPicker] = useState<null | "duration" | "stake" | "barrier" | "allow">(null);
@@ -362,18 +396,30 @@ function MobileDirectional({
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
+      {selectedReason && selectedReason !== "Pricing…" && (
+        <p className="px-4 pb-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {selectedReason}
+        </p>
+      )}
+
       {/* One slim, pill-shaped Buy button (Deriv-style) */}
       <div className="px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
+          disabled={buyDisabled}
+          title={selectedReason ?? undefined}
           aria-busy={placing}
-          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] ${
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${
             armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
-          <span className="text-[15px] leading-tight">{`Buy ${sideLabel(selectedSide)}`}</span>
-          <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
+          <span className="text-[15px] leading-tight">
+            {selectedReason ? sideLabel(selectedSide) : `Buy ${sideLabel(selectedSide)}`}
+          </span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">
+            {selectedReason ? selectedReason : `Payout ${format(payoutFor(selectedSide))}`}
+          </span>
         </button>
       </div>
     </div>
@@ -391,7 +437,7 @@ export function BarrierSheet({
   latestSpot: number;
   offset: number; setOffset: (v: number) => void;
   maxOffset?: number;   // fair-band cap on |offset| (see DirectionalPanel). Omitted = no cap.
-  minOffset?: number;   // server min |offset| (0.05% of spot for HL/Touch)
+  minOffset?: number;   // server min |offset| (0.1% of spot for HL/Touch)
   offsetStep: number;
   formatSpot: (v: number) => string;
   onClose: () => void;

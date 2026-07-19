@@ -109,8 +109,17 @@ export async function POST(req: Request) {
       durationTicks: ticks, stake: stakeVal, ticks: marketPrices, market,
       edgeFloor: symbolEdge,
     });
-    if (!priced.accepted)
-      return Response.json({ error: `This contract isn't available right now (${priced.reason}). Try a barrier closer to the spot, or a different duration.` }, { status: 400 });
+    if (!priced.accepted) {
+      // Keep the engine reason intact for calm client mapping (barrier-too-close, etc.).
+      // Don't suggest "closer" when the gate is already min-distance.
+      const hint = /barrier too close/i.test(priced.reason)
+        ? ""
+        : " Try a barrier closer to the spot, or a different duration.";
+      return Response.json(
+        { error: `This contract isn't available right now (${priced.reason}).${hint}` },
+        { status: 400 },
+      );
+    }
     payoutVal = priced.payout;
     grossPayout = priced.payout;
     payoutMultiplier = priced.multiplier;

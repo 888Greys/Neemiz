@@ -148,4 +148,40 @@ describe("POST /api/binary/quote", () => {
     expect(res.status).toBe(400);
     expect(getCalibrationTicks).not.toHaveBeenCalled();
   });
+
+  it("returns accepted:false for Matches when the stability gate trips (no fake payout)", async () => {
+    // ~17.5% target digit — outside [8%, 12%], same shape as Vol-10 digit-6 reports.
+    const skewed = Array.from({ length: 800 }, (_, i) => {
+      const d = i < 140 ? 6 : i % 10 === 6 ? 0 : i % 10;
+      return Number((1000 + d / 100).toFixed(2));
+    });
+    vi.mocked(getCalibrationTicks).mockResolvedValue({
+      prices: skewed,
+      entrySpot: skewed[skewed.length - 1],
+      entryEpoch: 1_700_000_000,
+      edge: 0.09,
+    });
+    vi.mocked(getLiveEntrySpot).mockResolvedValue({
+      spot: skewed[skewed.length - 1],
+      epoch: 1_700_000_000,
+    });
+
+    const res = await POST(makeRequest({
+      market: "1HZ10V",
+      sides: ["Matches", "Differs"],
+      stake: 50,
+      targetDigit: 6,
+      durationTicks: 5,
+    }));
+    expect(res.status).toBe(200);
+    const data = await res.json() as {
+      quotes: Record<string, { accepted: boolean; payout?: number; reason?: string }>;
+    };
+    expect(data.quotes.Matches).toMatchObject({ accepted: false });
+    expect(data.quotes.Matches.reason).toMatch(/digit distribution unstable/i);
+    expect(data.quotes.Matches.payout).toBeUndefined();
+    // Differs stays offerable on the same market/target.
+    expect(data.quotes.Differs.accepted).toBe(true);
+    expect(data.quotes.Differs.payout).toBeGreaterThan(0);
+  });
 });

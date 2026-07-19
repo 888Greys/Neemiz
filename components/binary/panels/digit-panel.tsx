@@ -36,6 +36,8 @@ export function DigitPanel({
   stakePresets,
   minStake,
   payoutFor,
+  rejectReasonFor,
+  lessAvailableDigits,
   format,
   onTrade,
   placing,
@@ -51,6 +53,10 @@ export function DigitPanel({
   stakePresets: number[];
   minStake: number;
   payoutFor: (side: ContractSide) => number;
+  /** When set, that side is not buyable — show the reason instead of a payout. */
+  rejectReasonFor?: (side: ContractSide) => string | null;
+  /** Client hint only: digits outside ~8–12% empirical freq look less available. */
+  lessAvailableDigits?: Set<number>;
   format: (v: number) => string;
   onTrade: (side: ContractSide) => void;
   placing: boolean;
@@ -69,6 +75,15 @@ export function DigitPanel({
   // we fall back to the first side so the toggle never points at a stale value.
   const [armedSide, setArmedSide] = useState<ContractSide>(sides[0]);
   const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+  const reasonFor = rejectReasonFor ?? (() => null);
+  const matchesReason = reasonFor("Matches");
+  const payoutLabel = (side: ContractSide) => {
+    const reason = reasonFor(side);
+    if (reason) return reason;
+    const payout = payoutFor(side);
+    if (!(payout > 0) && side === "Matches") return "Pricing…";
+    return format(payout);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -88,7 +103,9 @@ export function DigitPanel({
         needsTarget={needsTarget}
         targetVerb={targetVerb}
         targetDigits={targetDigits}
-        payoutFor={payoutFor}
+        payoutLabel={payoutLabel}
+        rejectReasonFor={reasonFor}
+        lessAvailableDigits={lessAvailableDigits}
         format={format}
         onTrade={onTrade}
         placing={placing}
@@ -156,17 +173,26 @@ export function DigitPanel({
               {targetDigits.map((d) => {
                 const active = targetDigit === d;
                 const isLast = lastDigit === d;
+                const lessAvail = !!lessAvailableDigits?.has(d);
                 return (
-                  <button key={d} type="button" onClick={() => setTargetDigit(d)}
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setTargetDigit(d)}
+                    title={lessAvail ? "Less available for Matches" : undefined}
                     className={`relative rounded-md py-1.5 font-mono text-[14px] font-black transition sm:py-2 sm:text-[15px] ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
                              : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_14px_rgba(245,185,66,0.45)]"
+                             : lessAvail ? "bg-[#0f1319] text-slate-600 hover:text-slate-400"
                              : "bg-[#0f1319] text-slate-400 hover:text-white"
                     }`}>
                     {/* Live last digit: the highlight pops onto the current digit each
                         tick (key changes → animation re-fires), so it visibly "moves". */}
                     <span key={isLast ? `l${lastDigit}` : "s"} className={isLast ? "inline-block animate-digit-pop" : undefined}>{d}</span>
                     {isLast && <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
+                    {lessAvail && !active && (
+                      <span className="absolute right-0.5 top-0.5 h-1 w-1 rounded-full bg-slate-500/80" aria-hidden />
+                    )}
                   </button>
                 );
               })}
@@ -176,17 +202,29 @@ export function DigitPanel({
 
         {/* Payout preview */}
         <div className={`${CARD} grid grid-cols-3 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
-          {sides.map((side) => (
-            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
-              <span className="block truncate font-bold text-slate-400 sm:inline">{actionLabel(side)}</span>
-              <span className="block truncate font-black text-white sm:inline">{format(payoutFor(side))}</span>
-            </div>
-          ))}
+          {sides.map((side) => {
+            const reason = reasonFor(side);
+            return (
+              <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+                <span className="block truncate font-bold text-slate-400 sm:inline">{actionLabel(side)}</span>
+                <span className={`block truncate font-black sm:inline ${reason ? "text-slate-500" : "text-white"}`}>
+                  {payoutLabel(side)}
+                </span>
+              </div>
+            );
+          })}
           <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.06] sm:bg-transparent sm:p-0 sm:pt-2">
             <span className="block truncate font-bold text-slate-400 sm:inline">Last digit</span>
             <span className="block font-mono font-black text-amber-300 sm:inline">{lastDigit}</span>
           </div>
         </div>
+
+        {/* Calm Matches availability note — never a red Trade-failed toast. */}
+        {matchesReason && matchesReason !== "Pricing…" && (
+          <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+            {matchesReason}
+          </p>
+        )}
       </div>
 
       {/* Live position banner — keeps the in-flight trade visible right where
@@ -197,21 +235,27 @@ export function DigitPanel({
       <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
         {sides.map((side) => {
           const isRed = RED_SIDES.has(side);
+          const reason = reasonFor(side);
+          const disabled = !!reason || placing;
           return (
             <button
               key={side}
               type="button"
               onClick={() => onTrade(side)}
+              disabled={disabled}
+              title={reason ?? undefined}
               aria-busy={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
-                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
+              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
               }`}
             >
               <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
                 <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
                 {actionLabel(side)}
               </span>
-              <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
+              <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
+                {payoutLabel(side)}
+              </span>
             </button>
           );
         })}
@@ -230,7 +274,7 @@ function MobileDerivDigits({
   stake, setStake, duration, setDuration,
   targetDigit, setTargetDigit, lastDigit,
   stakePresets, minStake, needsTarget, targetVerb, targetDigits,
-  payoutFor, format, onTrade, placing, openPositions,
+  payoutLabel, rejectReasonFor, lessAvailableDigits, format, onTrade, placing, openPositions,
 }: {
   currency: string;
   sides: ContractSide[];
@@ -245,13 +289,18 @@ function MobileDerivDigits({
   needsTarget: boolean;
   targetVerb: string;
   targetDigits: number[];
-  payoutFor: (side: ContractSide) => number;
+  payoutLabel: (side: ContractSide) => string;
+  rejectReasonFor: (side: ContractSide) => string | null;
+  lessAvailableDigits?: Set<number>;
   format: (v: number) => string;
   onTrade: (side: ContractSide) => void;
   placing: boolean;
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
+  const selectedReason = rejectReasonFor(selectedSide);
+  const matchesReason = rejectReasonFor("Matches");
+  const buyDisabled = !!selectedReason || placing;
   const { convert, currency: cc } = useCurrency();
   const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   // Which value the bottom-sheet picker is editing (Deriv-style); null = closed.
@@ -320,15 +369,24 @@ function MobileDerivDigits({
               {targetDigits.map((d) => {
                 const active = targetDigit === d;
                 const isLast = lastDigit === d;
+                const lessAvail = !!lessAvailableDigits?.has(d);
                 return (
-                  <button key={d} type="button" onClick={() => setTargetDigit(d)}
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setTargetDigit(d)}
+                    title={lessAvail ? "Less available for Matches" : undefined}
                     className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
                              : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_16px_rgba(245,185,66,0.5)]"
+                             : lessAvail ? "bg-[#0f1319] text-slate-600"
                              : "bg-[#0f1319] text-slate-400"
                     }`}>
                     <span key={isLast ? `l${lastDigit}` : "s"} className={isLast ? "inline-block animate-digit-pop" : undefined}>{d}</span>
                     {isLast && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
+                    {lessAvail && !active && (
+                      <span className="absolute right-1 top-1 h-1 w-1 rounded-full bg-slate-500/80" aria-hidden />
+                    )}
                   </button>
                 );
               })}
@@ -356,6 +414,12 @@ function MobileDerivDigits({
             <span className="mt-0.5 text-[16px] font-black text-white">{stakeShown} {currency}</span>
           </button>
         </div>
+
+        {matchesReason && matchesReason !== "Pricing…" && selectedSide === "Matches" && (
+          <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+            {matchesReason}
+          </p>
+        )}
       </div>
 
       {picker === "duration" && (
@@ -381,13 +445,19 @@ function MobileDerivDigits({
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
+          disabled={buyDisabled}
+          title={selectedReason ?? undefined}
           aria-busy={placing}
-          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] ${
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${
             armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
-          <span className="text-[15px] leading-tight">{`Buy ${actionLabel(selectedSide)}`}</span>
-          <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
+          <span className="text-[15px] leading-tight">
+            {selectedReason ? actionLabel(selectedSide) : `Buy ${actionLabel(selectedSide)}`}
+          </span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">
+            {selectedReason ? selectedReason : `Payout ${payoutLabel(selectedSide)}`}
+          </span>
         </button>
       </div>
     </div>

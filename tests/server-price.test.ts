@@ -1,6 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { makeRng, simulatePath } from "@/lib/binary/fairness";
-import { priceDirectionalServer, priceDigitServer, previewDigitPayout, resolveDigitEdgeFloor, MIN_OVER_UNDER_TICKS } from "@/lib/binary/server-price";
+import { exitDigitFromQuote } from "@/lib/binary/kernel";
+import {
+  priceDirectionalServer, priceDigitServer, previewDigitPayout, resolveDigitEdgeFloor,
+  shortDigitRejectReason, shortDirectionalRejectReason, minBarrierOffsetPts,
+  BARRIER_TOO_CLOSE_COPY, MIN_BARRIER_FRAC, MIN_OVER_UNDER_TICKS,
+  MATCHES_FREQ_LO, MATCHES_FREQ_HI,
+} from "@/lib/binary/server-price";
+
+/** Build a calibration window with an exact unconditional frequency for `digit`. */
+function ticksWithDigitFreq(digit: number, freq: number, n = 2000): number[] {
+  const targetCount = Math.round(n * freq);
+  const out: number[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    out.push(Number((100 + digit / 100).toFixed(2)));
+  }
+  let j = 0;
+  while (out.length < n) {
+    const d = j % 10;
+    j++;
+    if (d === digit) continue;
+    out.push(Number((100 + d / 100).toFixed(2)));
+  }
+  // Deterministic shuffle so conditional windows aren't pathologically clustered.
+  for (let i = out.length - 1; i > 0; i--) {
+    const k = (i * 17 + 31) % (i + 1);
+    [out[i], out[k]] = [out[k], out[i]];
+  }
+  return out;
+}
 
 // The request-path pricing helper: turns a contract + real tick window into a
 // stored payout via the engine. Ticks are injected, so no feed is needed.
@@ -73,6 +101,26 @@ describe("priceDirectionalServer", () => {
     });
     // May still reject for other reasons (near-certain / thin), but not the distance gate.
     if (!r.accepted) expect(r.reason).not.toMatch(/too close/i);
+  });
+
+  it("minBarrierOffsetPts matches MIN_BARRIER_FRAC and never under-rounds", () => {
+    expect(MIN_BARRIER_FRAC).toBe(0.001);
+    // Vol 10-ish spot ~9477: UI used to allow 4.74 (0.05%) which the server rejects.
+    const spot = 9477;
+    const minPts = minBarrierOffsetPts(spot);
+    expect(minPts).toBeGreaterThanOrEqual(spot * MIN_BARRIER_FRAC - 1e-9);
+    expect(minPts).toBe(9.48);
+    expect(minPts / spot).toBeGreaterThanOrEqual(MIN_BARRIER_FRAC - 1e-12);
+  });
+
+  it("shortDirectionalRejectReason maps barrier-too-close to calm Buy copy", () => {
+    expect(shortDirectionalRejectReason("barrier too close to spot — pick at least 0.1% away"))
+      .toBe(BARRIER_TOO_CLOSE_COPY);
+    expect(
+      shortDirectionalRejectReason(
+        "This contract isn't available right now (barrier too close to spot — pick at least 0.1% away).",
+      ),
+    ).toBe(BARRIER_TOO_CLOSE_COPY);
   });
 
   it("rejects deep-ITM HIGHER_LOWER under the tightened 80% Wilson cap", () => {
@@ -205,19 +253,58 @@ describe("priceDigitServer", () => {
     // Create highly skewed ticks where exit digits are always 5 (e.g. quote ends in .55555)
     const skewedTicks = Array.from({ length: 600 }, () => 100.55);
     
-    // Target digit 5 has frequency 100% (unstable, > 12%)
+    // Target digit 5 has frequency 100% (unstable, > HI)
     const rSkewedMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks: skewedTicks, entryDigit: 5 });
     expect(rSkewedMatches.accepted).toBe(false);
     if (!rSkewedMatches.accepted) {
       expect(rSkewedMatches.reason).toContain("digit distribution unstable");
     }
 
-    // Target digit 0 has frequency 0% (unstable, < 8%)
+    // Target digit 0 has frequency 0% (unstable, < LO)
     const rSkewedMatchesZero = priceDigitServer({ side: "Matches", targetDigit: 0, durationTicks: 5, stake: 100, ticks: skewedTicks, entryDigit: 0 });
     expect(rSkewedMatchesZero.accepted).toBe(false);
     if (!rSkewedMatchesZero.accepted) {
       expect(rSkewedMatchesZero.reason).toContain("digit distribution unstable");
     }
+  });
+
+  it("Matches stability gate accepts band edges and rejects just outside", () => {
+    expect(MATCHES_FREQ_LO).toBe(0.08);
+    expect(MATCHES_FREQ_HI).toBe(0.12);
+
+    for (const freq of [MATCHES_FREQ_LO, MATCHES_FREQ_HI] as const) {
+      const bandTicks = ticksWithDigitFreq(5, freq);
+      const measured = bandTicks.filter((t) => exitDigitFromQuote(t) === 5).length / bandTicks.length;
+      expect(measured).toBeCloseTo(freq, 3);
+      const r = priceDigitServer({
+        side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100,
+        ticks: bandTicks, entryDigit: 3,
+      });
+      expect(r.accepted, `freq=${freq} should be inside band`).toBe(true);
+    }
+
+    for (const freq of [MATCHES_FREQ_LO - 0.001, MATCHES_FREQ_HI + 0.001, 0.175] as const) {
+      const outTicks = ticksWithDigitFreq(6, freq);
+      const r = priceDigitServer({
+        side: "Matches", targetDigit: 6, durationTicks: 5, stake: 100,
+        ticks: outTicks, entryDigit: 2,
+      });
+      expect(r.accepted, `freq=${freq} should be rejected`).toBe(false);
+      if (!r.accepted) expect(r.reason).toContain("digit distribution unstable");
+    }
+  });
+
+  it("shortDigitRejectReason maps gate copy for the Matches Buy label", () => {
+    expect(shortDigitRejectReason("digit distribution unstable (freq 17.5%)")).toBe(
+      "Matches unavailable for this digit — try another",
+    );
+    expect(shortDigitRejectReason("insufficient conditional data")).toBe(
+      "Matches unavailable for this digit — try another",
+    );
+    expect(
+      shortDigitRejectReason("This contract isn't available right now (digit distribution unstable)"),
+    ).toBe("Matches unavailable for this digit — try another");
+    expect(shortDigitRejectReason("entry digit required for Matches")).toBe("Pricing…");
   });
 
   it("still allows Even/Odd on skewed ticks since they do not check digit stability", () => {

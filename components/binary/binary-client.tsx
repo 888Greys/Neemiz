@@ -46,7 +46,18 @@ import {
   toLeveragedClosedPosition,
   type ClosedPosition,
 } from "@/lib/binary/history";
-import { previewDigitPayout } from "@/lib/binary/server-price";
+import {
+  BARRIER_TOO_CLOSE_COPY,
+  MATCHES_FREQ_HI,
+  MATCHES_FREQ_LO,
+  MATCHES_UNAVAILABLE_COPY,
+  isCalmDigitAvailabilityReject,
+  isCalmDirectionalReject,
+  minBarrierOffsetPts,
+  previewDigitPayout,
+  shortDigitRejectReason,
+  shortDirectionalRejectReason,
+} from "@/lib/binary/server-price";
 import { isUnderQuarantined } from "@/lib/binary/quarantine";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
@@ -953,15 +964,21 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     (s) => !(s === "Under" && isUnderQuarantined(marketSymbol)),
   );
 
-  // Live digit quotes from POST /api/binary/quote (priceDigitServer). Fallback:
-  // static previewDigitPayout when the feed/quote is unavailable.
-  const [liveDigitPayouts, setLiveDigitPayouts] = useState<Partial<Record<ContractSide, number>>>({});
+  // Live digit quotes from POST /api/binary/quote (priceDigitServer).
+  // Explicit rejections are kept so Matches never falls back to a fake ~8×
+  // static preview while the server would refuse the trade.
+  type LiveDigitQuote =
+    | { accepted: true; payout: number }
+    | { accepted: false; reason: string };
+  const [liveDigitQuotes, setLiveDigitQuotes] = useState<Partial<Record<ContractSide, LiveDigitQuote>>>({});
   const selectedSidesKey = selectedSides.join(",");
   useEffect(() => {
     if (!isDigitType || stake <= 0) return;
     let cancelled = false;
     const sides = selectedSidesKey.split(",").filter(Boolean) as ContractSide[];
     if (!sides.length) return;
+    // Drop stale payouts/reasons when market/target/stake/duration changes.
+    setLiveDigitQuotes({});
 
     const fetchQuotes = async () => {
       try {
@@ -977,20 +994,23 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           }),
         });
         const data = await res.json() as {
-          quotes?: Record<string, { accepted: boolean; payout?: number }>;
+          quotes?: Record<string, { accepted: boolean; payout?: number; reason?: string }>;
         };
         if (cancelled || !res.ok || !data.quotes) return;
-        setLiveDigitPayouts((prev) => {
-          const next: Partial<Record<ContractSide, number>> = { ...prev };
+        setLiveDigitQuotes(() => {
+          const next: Partial<Record<ContractSide, LiveDigitQuote>> = {};
           for (const side of sides) {
             const q = data.quotes![side];
-            if (q?.accepted && typeof q.payout === "number") next[side] = q.payout;
-            else delete next[side];
+            if (q?.accepted && typeof q.payout === "number") {
+              next[side] = { accepted: true, payout: q.payout };
+            } else if (q && q.accepted === false) {
+              next[side] = { accepted: false, reason: q.reason || "Unavailable" };
+            }
           }
           return next;
         });
       } catch {
-        // Keep last live quote; digitPayoutFor falls back to preview if empty.
+        // Keep last live quote on transient network blips.
       }
     };
 
@@ -1003,9 +1023,36 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     };
   }, [isDigitType, market.derivSymbol, stake, duration, targetDigit, selectedSidesKey]);
 
+  const digitRejectReason = useCallback((side: ContractSide): string | null => {
+    const q = liveDigitQuotes[side];
+    if (q && !q.accepted) return shortDigitRejectReason(q.reason);
+    // Matches requires a live accepted quote — never offer on static preview.
+    if (side === "Matches" && !q?.accepted) return "Pricing…";
+    return null;
+  }, [liveDigitQuotes]);
+
   const digitPayoutFor = useCallback((side: ContractSide) => {
-    return liveDigitPayouts[side] ?? previewDigitPayout(stake, side, targetDigit);
-  }, [liveDigitPayouts, stake, targetDigit]);
+    const q = liveDigitQuotes[side];
+    if (q?.accepted) return q.payout;
+    // Rejected / pending Matches → hide inflated static ~8× payout.
+    if ((q && !q.accepted) || side === "Matches") return 0;
+    return previewDigitPayout(stake, side, targetDigit);
+  }, [liveDigitQuotes, stake, targetDigit]);
+
+  // Client-only hint: digits outside the Matches freq band look "less available".
+  // Server gates stay fail-closed — this never enables a trade.
+  const lessAvailableDigits = useMemo(() => {
+    if (family !== "matchDiffer" || ticks.length < 40) return undefined;
+    const counts = Array<number>(10).fill(0);
+    for (const t of ticks) counts[t.digit]++;
+    const n = ticks.length;
+    const out = new Set<number>();
+    for (let d = 0; d < 10; d++) {
+      const freq = counts[d] / n;
+      if (freq < MATCHES_FREQ_LO || freq > MATCHES_FREQ_HI) out.add(d);
+    }
+    return out.size ? out : undefined;
+  }, [family, ticks]);
 
   // Live net payout (what an accumulator cash-out would credit now).
   const accaNetPayout = accaPos
@@ -1029,15 +1076,19 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     const frac = (clientSigma ?? 0.003) * Math.sqrt(Math.max(1, duration)) * BARRIER_BAND_SIGMAS;
     return Math.max(0.02, Math.round(latest.quote * frac * 100) / 100);
   }, [clientSigma, duration, latest.quote]);
-  // Server rejects barriers closer than 0.05% of spot — keep the picker outside that dead zone.
+  // Server rejects barriers closer than MIN_BARRIER_FRAC (0.1%) — keep the picker outside that dead zone.
   const minBarrierOffset = useMemo(
-    () => Math.max(0.01, Math.round(latest.quote * 0.0005 * 100) / 100),
+    () => minBarrierOffsetPts(latest.quote),
     [latest.quote],
   );
   const minDurationTicks = dirKind === "RISE_FALL" && market.derivSymbol.startsWith("1HZ") ? 2 : 1;
 
   // Live directional quotes (priceDirectionalServer) for fixed-payout kinds.
-  const [liveDirPayouts, setLiveDirPayouts] = useState<Partial<Record<DirectionalSide, number>>>({});
+  // Keep explicit rejections so Buy can disable calmly (Matches pattern).
+  type LiveDirQuote =
+    | { accepted: true; payout: number }
+    | { accepted: false; reason: string };
+  const [liveDirQuotes, setLiveDirQuotes] = useState<Partial<Record<DirectionalSide, LiveDirQuote>>>({});
   const dirSidesKey = dirSides.join(",");
   const needsDirQuote = isDirectionalType && !isVanillaType && !!dirKind;
   useEffect(() => {
@@ -1046,6 +1097,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     let cancelled = false;
     const sides = dirSidesKey.split(",").filter(Boolean) as DirectionalSide[];
     if (!sides.length) return;
+    setLiveDirQuotes({});
 
     const fetchQuotes = async () => {
       try {
@@ -1062,15 +1114,18 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           }),
         });
         const data = await res.json() as {
-          quotes?: Record<string, { accepted: boolean; payout?: number }>;
+          quotes?: Record<string, { accepted: boolean; payout?: number; reason?: string }>;
         };
         if (cancelled || !res.ok || !data.quotes) return;
-        setLiveDirPayouts((prev) => {
-          const next: Partial<Record<DirectionalSide, number>> = { ...prev };
+        setLiveDirQuotes(() => {
+          const next: Partial<Record<DirectionalSide, LiveDirQuote>> = {};
           for (const side of sides) {
             const q = data.quotes![side];
-            if (q?.accepted && typeof q.payout === "number") next[side] = q.payout;
-            else delete next[side];
+            if (q?.accepted && typeof q.payout === "number") {
+              next[side] = { accepted: true, payout: q.payout };
+            } else if (q && q.accepted === false) {
+              next[side] = { accepted: false, reason: q.reason || "Unavailable" };
+            }
           }
           return next;
         });
@@ -1088,11 +1143,18 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     };
   }, [needsDirQuote, dirKind, market.derivSymbol, stake, duration, barrierOffset, dirSidesKey]);
 
+  const dirRejectReason = useCallback((side: DirectionalSide): string | null => {
+    const q = liveDirQuotes[side];
+    if (q && !q.accepted) return shortDirectionalRejectReason(q.reason);
+    return null;
+  }, [liveDirQuotes]);
+
   // Fixed-payout preview: prefer live server quote; else client estimate.
   // Rise/Fall used to hardcode 1.90× + retention while place used Wilson pricing.
   const dirPayoutFor = (side: DirectionalSide): number => {
-    const live = liveDirPayouts[side];
-    if (typeof live === "number") return live;
+    const live = liveDirQuotes[side];
+    if (live?.accepted) return live.payout;
+    if (live && !live.accepted) return 0;
     let rate = 1.90;
     if (dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") {
       if (!clientSigma) return 0;
@@ -1860,6 +1922,12 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   const placeDirectional = useCallback(async (side: DirectionalSide) => {
     if (dirPlacing || stake <= 0 || !dirKind) return;
+    const reject = dirRejectReason(side);
+    if (reject) {
+      // Button should already be disabled; calm info only — never "Trade failed".
+      if (reject !== "Pricing…") toast.info(reject);
+      return;
+    }
     if (balance < stake) {
       toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
       return;
@@ -1868,6 +1936,11 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     const offset = dirKind === "RISE_FALL" ? 0 : barrierOffset;
     if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") && offset === 0) {
       toast.error("Set a barrier", "Move the barrier above or below the spot.");
+      return;
+    }
+    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH")
+        && Math.abs(offset) + 1e-10 < minBarrierOffset) {
+      toast.info(BARRIER_TOO_CLOSE_COPY);
       return;
     }
     const needsSigma = dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH" || dirKind === "VANILLA";
@@ -1887,7 +1960,12 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payout?: number; payoutPerPoint?: number | null; error?: string };
         if (!res.ok || !data.tradeId) {
           setLiveBalance(prevBalance);
-          toast.error("Trade failed", data.error ?? "Could not place trade");
+          const err = data.error ?? "Could not place trade";
+          if (isCalmDirectionalReject(err)) {
+            toast.info(BARRIER_TOO_CLOSE_COPY);
+          } else {
+            toast.error("Trade failed", err);
+          }
           return;
         }
         window.dispatchEvent(new Event("wallet-refresh"));
@@ -1922,10 +2000,16 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
-  }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma, liveDirPayouts]);
+  }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma, liveDirQuotes, dirRejectReason, minBarrierOffset]);
 
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;
+    const reject = digitRejectReason(side);
+    if (reject) {
+      // Button should already be disabled; calm info only — never "Trade failed".
+      if (reject !== "Pricing…") toast.info(reject);
+      return;
+    }
     if (balance < stake) {
       toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
       return;
@@ -1977,7 +2061,12 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           setLiveBalance(prevBalance);
           setOpenTrades(prevOpen);
           setTransactions(prevTx);
-          toast.error("Trade failed", data.error ?? "Could not place trade");
+          const err = data.error ?? "Could not place trade";
+          if (isCalmDigitAvailabilityReject(err)) {
+            toast.info(MATCHES_UNAVAILABLE_COPY);
+          } else {
+            toast.error("Trade failed", err);
+          }
           return;
         }
         setOpenTrades((current) =>
@@ -2239,6 +2328,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 stakePresets={stakePresets}
                 minStake={minStake}
                 payoutFor={digitPayoutFor}
+                rejectReasonFor={digitRejectReason}
+                lessAvailableDigits={lessAvailableDigits}
                 format={money}
                 onTrade={placeTrade}
                 placing={placing}
@@ -2280,6 +2371,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 stakePresets={stakePresets}
                 minStake={minStake}
                 payoutFor={dirPayoutFor}
+                rejectReasonFor={dirRejectReason}
                 format={money}
                 formatSpot={formatQuote}
                 onTrade={placeDirectional}

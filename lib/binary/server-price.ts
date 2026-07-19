@@ -22,6 +22,15 @@ export type DirectionalPrice =
  *  Raised to 0.1% after autopsy: nearly all HL volume sat under 0.05%. */
 export const MIN_BARRIER_FRAC = 0.001; // 0.1%
 
+/**
+ * UI barrier-offset floor (points) matching {@link MIN_BARRIER_FRAC}.
+ * Ceiled to 2dp so a rounded picker value never lands under the server gate.
+ */
+export function minBarrierOffsetPts(spot: number): number {
+  if (!(spot > 0)) return 0.01;
+  return Math.max(0.01, Math.ceil(spot * MIN_BARRIER_FRAC * 100 - 1e-9) / 100);
+}
+
 /** Extra edge floor for short-duration Rise/Fall on 1Hz synthetics. */
 export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
 
@@ -41,9 +50,61 @@ export const HIGHER_LOWER_MAX_WIN_PROB = 0.80;
  */
 export const MIN_OVER_UNDER_TICKS = 5;
 
-/** Matches target-digit frequency band. Outside → refuse (biased digit). */
+/**
+ * Matches target-digit frequency band. Outside → refuse (biased digit).
+ * Kept at [8%, 12%] after the R_50 sticky-Matches autopsy (live RTP ~2.5–3.4).
+ * Do not widen without house-safe proof: conditional pricing + 20% edge floor
+ * alone do not justify quoting clearly biased digits (e.g. ~17% on Vol 10).
+ */
 export const MATCHES_FREQ_LO = 0.08;
 export const MATCHES_FREQ_HI = 0.12;
+
+/** Calm client copy when Matches is gated (freq / conditional / unavailable). */
+export const MATCHES_UNAVAILABLE_COPY =
+  "Matches unavailable for this digit — try another";
+
+/** True for soft availability refusals — never surface as a scary "Trade failed". */
+export function isCalmDigitAvailabilityReject(reason: string): boolean {
+  return (
+    /digit distribution/i.test(reason) ||
+    /insufficient conditional/i.test(reason) ||
+    /isn't available right now/i.test(reason)
+  );
+}
+
+/** Compact UI copy for priceDigitServer / quote rejection reasons. */
+export function shortDigitRejectReason(reason: string): string {
+  if (isCalmDigitAvailabilityReject(reason)) return MATCHES_UNAVAILABLE_COPY;
+  if (/insufficient market/i.test(reason)) return "Not enough data";
+  if (/entry digit required/i.test(reason)) return "Pricing…";
+  if (/temporarily unavailable/i.test(reason)) return "Unavailable";
+  if (/needs at least/i.test(reason)) return "Duration too short";
+  if (/priced ≤ 1×/i.test(reason)) return "Payout too low";
+  if (/win (probability|chance)/i.test(reason)) return "Not priceable";
+  if (/cannot win/i.test(reason)) return "Cannot win";
+  return reason.length > 28 ? `${reason.slice(0, 27)}…` : reason;
+}
+
+/** Calm client copy when HL / Touch barrier is inside the server min distance. */
+export const BARRIER_TOO_CLOSE_COPY = "Move barrier farther from spot";
+
+/** Soft directional refusals — never surface as a scary "Trade failed". */
+export function isCalmDirectionalReject(reason: string): boolean {
+  return /barrier too close/i.test(reason);
+}
+
+/** Compact UI copy for priceDirectionalServer / quote rejection reasons. */
+export function shortDirectionalRejectReason(reason: string): string {
+  if (isCalmDirectionalReject(reason)) return BARRIER_TOO_CLOSE_COPY;
+  if (/insufficient market/i.test(reason)) return "Not enough data";
+  if (/temporarily unavailable/i.test(reason)) return "Unavailable";
+  if (/1-tick Rise\/Fall/i.test(reason)) return "Duration too short";
+  if (/priced ≤ 1×/i.test(reason)) return "Payout too low";
+  if (/win (probability|chance)|near.?certain/i.test(reason)) return "Not priceable";
+  if (/cannot win/i.test(reason)) return "Cannot win";
+  if (/isn't available right now/i.test(reason)) return "Unavailable";
+  return reason.length > 28 ? `${reason.slice(0, 27)}…` : reason;
+}
 
 // Under-quarantine list lives in a tiny shared module so the UI and this server
 // gate share ONE source of truth (see lib/binary/quarantine.ts). Re-exported for
