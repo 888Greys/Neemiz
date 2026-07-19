@@ -10,12 +10,18 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+    const meta = user.user_metadata ?? {};
+    const avatar =
+      (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+      (typeof meta.picture === "string" && meta.picture) ||
+      null;
     const dbUser = await getOrCreateUser(user.id, {
       email:     user.email,
-      phone:     user.phone ?? user.user_metadata?.phone_number,
-      username:  user.user_metadata?.username,
-      firstName: user.user_metadata?.first_name,
-      lastName:  user.user_metadata?.last_name,
+      phone:     user.phone ?? meta.phone_number,
+      username:  meta.username,
+      firstName: meta.first_name,
+      lastName:  meta.last_name,
+      imageUrl:  avatar,
     });
 
     // ── Blockchain crypto balances from UserCryptoBalance table ───────────────

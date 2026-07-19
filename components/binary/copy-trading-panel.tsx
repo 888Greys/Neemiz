@@ -10,8 +10,15 @@ type LeaderRow = {
   username: string;
   displayName: string | null;
   bio: string | null;
+  imageUrl: string | null;
   followers: number;
-  sample: { trades: number; winRate: number | null; pnlKes: number; volumeKes: number };
+  sample: {
+    trades: number;
+    winRate: number | null;
+    pnlKes: number;
+    volumeKes: number;
+    windowDays?: number;
+  };
 };
 
 type FollowRow = {
@@ -36,6 +43,42 @@ const DISCLOSURE_LEAD =
 function initials(name: string) {
   const t = name.replace(/^@/, "").trim();
   return (t.slice(0, 2) || "?").toUpperCase();
+}
+
+function LeaderAvatar({
+  username,
+  imageUrl,
+  size = 44,
+}: {
+  username: string;
+  imageUrl?: string | null;
+  size?: number;
+}) {
+  const cls = "shrink-0 rounded-full object-cover ring-1 ring-white/[0.08]";
+  if (imageUrl) {
+    return (
+      // Google avatars often require no-referrer.
+      <img
+        src={imageUrl}
+        alt=""
+        width={size}
+        height={size}
+        referrerPolicy="no-referrer"
+        className={cls}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-500/30 to-sky-500/20 font-black text-white ring-1 ring-white/[0.08] ${
+        size >= 48 ? "text-[13px]" : "text-[12px]"
+      }`}
+      style={{ width: size, height: size }}
+    >
+      {initials(username)}
+    </span>
+  );
 }
 
 function Field({
@@ -283,14 +326,13 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                     className="rounded-2xl bg-[#0c0e14] p-3.5 ring-1 ring-white/[0.06] transition hover:ring-white/[0.1]"
                   >
                     <div className="flex items-start gap-3">
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-500/30 to-sky-500/20 text-[12px] font-black text-white ring-1 ring-white/[0.08]">
-                        {initials(L.username)}
-                      </span>
+                      <LeaderAvatar username={L.username} imageUrl={L.imageUrl} size={44} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[14px] font-black text-white">@{L.username}</p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 ring-1 ring-white/[0.06]">
-                            {L.sample.trades} trades
+                            {L.sample.trades} copyable
+                            {L.sample.windowDays ? ` · ${L.sample.windowDays}d` : ""}
                           </span>
                           <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-400 ring-1 ring-white/[0.06]">
                             {wr == null ? "—" : `${wr}% win`}
@@ -299,11 +341,15 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                             {L.followers} followers
                           </span>
                         </div>
-                        {L.sample.trades < 10 && (
+                        {L.sample.trades === 0 ? (
+                          <p className="mt-2 text-[10px] font-medium text-amber-400/90">
+                            No Even/Odd or Rise/Fall in the sample window
+                          </p>
+                        ) : L.sample.trades < 10 ? (
                           <p className="mt-2 text-[10px] font-medium text-amber-400/90">
                             Low sample — treat stats lightly
                           </p>
-                        )}
+                        ) : null}
                       </div>
                       <button
                         type="button"
@@ -332,9 +378,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
               </button>
 
               <div className="flex items-center gap-3 rounded-2xl bg-[#0c0e14] p-3.5 ring-1 ring-white/[0.06]">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-violet-500/30 to-sky-500/20 text-[13px] font-black text-white ring-1 ring-white/[0.08]">
-                  {initials(picked.username)}
-                </span>
+                <LeaderAvatar username={picked.username} imageUrl={picked.imageUrl} size={48} />
                 <div>
                   <p className="text-[15px] font-black text-white">@{picked.username}</p>
                   <p className="text-[11px] text-slate-500">Set stake limits before you start</p>
