@@ -71,20 +71,22 @@ export function StakeAmountField({
       setDraft(null);
       return;
     }
+    // Parse display USD once → KES. PlayUsdProvider.toKes is 2dp-stable so
+    // re-display via toDisplay does not drift (10 → 10, not 10.01).
     const n = Number(cleaned);
     if (!Number.isFinite(n) || n <= 0) {
       setStakeKes(minStakeKes);
       setDraft(null);
       return;
     }
-    setStakeKes(Math.max(minStakeKes, Math.round(toKes(n))));
+    setStakeKes(Math.max(minStakeKes, toKes(n)));
     setDraft(null);
   }
 
   function nudge(deltaDisplay: number) {
     const base = draft !== null && draft !== "" ? Number(draft) : displayValue;
     const next = (Number.isFinite(base) ? base : 0) + deltaDisplay;
-    setStakeKes(Math.max(minStakeKes, Math.round(toKes(Math.max(0, next)))));
+    setStakeKes(Math.max(minStakeKes, toKes(Math.max(0, next))));
     setDraft(null);
   }
 

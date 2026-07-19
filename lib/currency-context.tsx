@@ -10,7 +10,7 @@ import {
   isSupportedCurrency,
   type DisplayCurrency,
 } from "@/lib/currency-config";
-import { usdToKesWithRates } from "@/lib/play-usd";
+import { kesToPlayUsd, usdToKesWithRates } from "@/lib/play-usd";
 
 export const CURRENCY_COOKIE = "display_currency";
 
@@ -120,7 +120,7 @@ export function useMoney(): { format: (amountKes: number) => string; code: strin
 /**
  * Lock display/input to USD for Binary & Forex without changing the user's
  * global currency preference (cookie / account). Ledger amounts stay KES;
- * convert uses the parent FX map; toKes matches server play mins (ceil).
+ * convert/toKes use 2dp-stable play FX (see lib/play-usd) so $10 stays $10.
  */
 export function PlayUsdProvider({ children }: { children: ReactNode }) {
   const parent = useCurrency();
@@ -134,12 +134,10 @@ export function PlayUsdProvider({ children }: { children: ReactNode }) {
       setCurrency: () => {
         /* locked while on Binary / Forex */
       },
-      convert: (amountKes: number) => convertFromKes(amountKes, "USD", toKES),
-      // Same ceil as lib/play-usd.minPlayStakeKes — Math.round alone can land
-      // 1 KSh under the API floor and reject a true $1 stake.
+      convert: (amountKes: number) => kesToPlayUsd(amountKes, toKES),
       toKes: (displayAmount: number) => usdToKesWithRates(displayAmount, toKES),
       format: (amountKes: number) =>
-        formatInCurrency(convertFromKes(amountKes, "USD", toKES), "USD"),
+        formatInCurrency(kesToPlayUsd(amountKes, toKES), "USD"),
     };
   }, [parent.toKES]);
 
