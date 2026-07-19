@@ -950,11 +950,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   // Hide sides the server will reject so the UI never offers a dead bet:
-  //  - Under on markets where it's quarantined (see lib/binary/quarantine).
-  //  - Matches everywhere — removed via the kill switch after an R_50 digit
-  //    calibration leak (RTP ~3×). Leaves Differs as the live matchDiffer side.
+  // Under on markets where it's quarantined (see lib/binary/quarantine).
+  // Matches is live again via kernel pricing + stability gate in priceDigitServer.
   const selectedSides = familySides(family).filter(
-    (s) => s !== "Matches" && !(s === "Under" && isUnderQuarantined(marketSymbol)),
+    (s) => !(s === "Under" && isUnderQuarantined(marketSymbol)),
   );
 
   // Live net payout (what an accumulator cash-out would credit now).

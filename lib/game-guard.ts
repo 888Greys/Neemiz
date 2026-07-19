@@ -8,17 +8,19 @@ import { db } from "@/lib/db";
  * Tokens are `${game}:${type}`, e.g. "binary:Odd", "directional:TOUCH_NO_TOUCH".
  * The live set is the DB flag `system_settings.disabled_bet_types` (a
  * comma-separated list) when present, else the DEFAULT_DISABLED baseline below.
- * Set the DB flag to an empty string to re-enable everything.
+ *
+ * Ops — clear a prod override (DB wins over DEFAULT_DISABLED when the row exists):
+ *   UPDATE system_settings SET value = '' WHERE key = 'disabled_bet_types';
+ *   -- or DELETE FROM system_settings WHERE key = 'disabled_bet_types';
+ * There is no admin UI for this flag; RTP guard may re-write it via disableBetType().
+ * Cache TTL is 10s, so a clear takes effect within ~10s without restart.
  */
-const DEFAULT_DISABLED = new Set([
-  // Binary: players win a positive edge here (Even/Odd win >50%; Matches
-  // over-pays). Over/Under/Differs are house-favorable and stay live.
-  "binary:Odd", "binary:Even", "binary:Matches",
-  // Directional: Touch/No-Touch far-barrier + Higher/Lower deep-ITM +
-  // Rise/Fall are player-favorable. Vanilla stays live.
-  "directional:TOUCH_NO_TOUCH", "directional:HIGHER_LOWER", "directional:RISE_FALL",
-  // Accumulator: whole game pays a +363% player edge — disable entirely.
-  "accumulator:ALL",
+const DEFAULT_DISABLED = new Set<string>([
+  // Intentionally empty: digit + directional families are kernel-priced
+  // (lib/binary/*) with runtime RTP auto-halt. Accumulator is soft-reopened on
+  // fair-barrier + 30% retention math in lib/accumulator — NOT kernel-priced
+  // and not covered by rtp-guard. Historical +363% was the old barrier floor;
+  // kill with `accumulator:ALL` in disabled_bet_types if it bleeds.
 ]);
 
 const CACHE_TTL_MS = 10_000;

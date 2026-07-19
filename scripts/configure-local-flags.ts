@@ -14,10 +14,12 @@ async function main() {
 
   console.log("Configuring local database system settings...");
 
+  // Empty string = no kill-switch override (all DEFAULT_DISABLED / catalogue types
+  // bettable). A non-empty comma list still wins over code defaults when present.
   const settings = [
     {
       key: "disabled_bet_types",
-      value: "binary:Odd,binary:Even,binary:Matches,binary:Differs,accumulator:ALL",
+      value: "",
     },
   ];
 
