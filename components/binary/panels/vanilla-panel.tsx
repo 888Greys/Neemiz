@@ -138,44 +138,58 @@ export function VanillaPanel({
           </div>
         </div>
 
-        {/* Payout preview — proportional (per point) + capped max */}
-        <div className={`${CARD} grid grid-cols-2 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
-          {sides.map((side) => (
-            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
-              <span className="block truncate font-bold text-slate-400 sm:inline">{side}/pt</span>
-              <span className="block truncate font-black text-white sm:inline">{format(payoutPerPointFor(side))}</span>
-            </div>
-          ))}
-          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.06] sm:bg-transparent sm:p-0 sm:pt-2">
-            <span className="block truncate font-bold text-slate-400 sm:inline">Max payout</span>
-            <span className="block truncate font-black text-emerald-300 sm:inline">{format(maxPayout)}</span>
+        {/* Payout preview — max first; /pt is secondary detail */}
+        <div className={`${CARD} grid grid-cols-2 gap-1 text-[10px] sm:block sm:space-y-2 sm:text-[13px]`}>
+          <div className="col-span-2 min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+            <span className="block truncate font-bold text-slate-300 sm:inline">Max payout</span>
+            <span className="block truncate font-black text-emerald-300 sm:text-[15px] sm:inline">{format(maxPayout)}</span>
+          </div>
+          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+            <span className="block truncate font-bold text-slate-400 sm:inline">Strike</span>
+            <span className="block truncate font-mono font-black text-amber-300 sm:inline">{formatSpot(strike)}</span>
           </div>
           <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
             <span className="block truncate font-bold text-slate-400 sm:inline">Spot</span>
             <span className="block truncate font-mono font-black text-sky-300 sm:inline">{formatSpot(latestSpot)}</span>
           </div>
+          {sides.map((side) => (
+            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/40 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.04] sm:bg-transparent sm:p-0 sm:pt-1.5">
+              <span className="block truncate font-bold text-slate-500 sm:inline sm:text-[12px]">{side}/pt</span>
+              <span className="block truncate font-mono font-bold text-slate-400 sm:inline sm:text-[12px]">{format(payoutPerPointFor(side))}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
-      {/* Action buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
-        {sides.map((side) => {
-          const isPut = side === "PUT";
-          return (
-            <button key={side} type="button" onClick={() => onTrade(side)} aria-busy={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black leading-none text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0 sm:px-3 sm:py-3 ${
-                isPut ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
-              }`}>
-              <span className="flex items-center gap-1 text-[11px] leading-none sm:text-[14px]">
-                <Icon name={isPut ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
-                {side}
-              </span>
-              <span className="font-mono text-[9px] leading-none text-white/85 sm:mt-0.5 sm:text-[12px]">{format(payoutPerPointFor(side))}/pt</span>
-            </button>
-          );
-        })}
+      {/* Action buttons — max payout is the hero money figure; /pt is detail */}
+      <div className="shrink-0 space-y-1 p-2 pt-1.5 sm:pt-2">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          {sides.map((side) => {
+            const isPut = side === "PUT";
+            return (
+              <button key={side} type="button" onClick={() => onTrade(side)} aria-busy={placing}
+                className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black leading-none text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+                  isPut ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
+                }`}>
+                <span className="flex items-center gap-1 text-[11px] leading-none sm:text-[14px]">
+                  <Icon name={isPut ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
+                  {side}
+                </span>
+                <span className="font-mono text-[10px] leading-none text-white sm:mt-0.5 sm:text-[13px]">
+                  max {format(maxPayout)}
+                </span>
+                <span className="hidden font-mono text-[10px] font-bold leading-none text-white/55 sm:mt-0.5 sm:block">
+                  {format(payoutPerPointFor(side))}/pt
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="px-0.5 text-center text-[10px] font-medium leading-snug text-slate-500 sm:text-[11px]">
+          Payout scales with points ITM, up to max
+        </p>
       </div>
       </div>
     </div>
@@ -184,7 +198,7 @@ export function VanillaPanel({
 
 // Deriv-style mobile trade surface for vanilla options: a Call/Put toggle over
 // tappable Duration / Strike / Stake cards, and one full-width Buy button with
-// the live per-point payout. Shown only below sm.
+// max payout as the primary figure (/pt as secondary detail). Shown only below sm.
 function MobileVanilla({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration, secPerTick,
@@ -287,9 +301,15 @@ function MobileVanilla({
           </div>
         )}
 
-        <div className="flex items-center justify-between px-1 text-[12px]">
-          <span className="font-bold text-slate-400">Max payout</span>
-          <span className="font-black text-emerald-300">{format(maxPayout)}</span>
+        <div className="space-y-1 px-1">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="font-bold text-slate-300">Max payout</span>
+            <span className="font-black text-emerald-300">{format(maxPayout)}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-slate-500">{selectedSide}/pt</span>
+            <span className="font-mono font-bold text-slate-400">{format(payoutPerPointFor(selectedSide))}</span>
+          </div>
         </div>
       </div>
 
@@ -316,8 +336,8 @@ function MobileVanilla({
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
-      {/* One slim, pill-shaped Buy button (Deriv-style) */}
-      <div className="px-3 pb-2 pt-1">
+      {/* One slim, pill-shaped Buy button — max payout primary, /pt detail */}
+      <div className="space-y-1 px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
@@ -327,8 +347,14 @@ function MobileVanilla({
           }`}
         >
           <span className="text-[15px] leading-tight">{`Buy ${selectedSide}`}</span>
-          <span className="font-mono text-[11px] leading-tight text-white/85">{format(payoutPerPointFor(selectedSide))}/pt</span>
+          <span className="font-mono text-[12px] leading-tight text-white">max {format(maxPayout)}</span>
+          <span className="font-mono text-[10px] font-bold leading-tight text-white/55">
+            {format(payoutPerPointFor(selectedSide))}/pt
+          </span>
         </button>
+        <p className="text-center text-[10px] font-medium leading-snug text-slate-500">
+          Payout scales with points ITM, up to max
+        </p>
       </div>
     </div>
   );
