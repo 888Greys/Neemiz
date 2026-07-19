@@ -106,6 +106,7 @@ export function isBinaryAllowedPath(pathname: string): boolean {
     "/terms",
     "/privacy",
     "/api/binary",
+    "/api/copy",
     "/api/wallet",
     "/api/webhooks",
     "/api/account",

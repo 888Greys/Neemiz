@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { useCurrency } from "@/lib/currency-context";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 import { FALLBACK_USD_KES, MIN_PLAY_USD } from "@/lib/play-usd";
 
 // Server-driven binary auto-trader UI. Self-contained: it owns its own config,
@@ -47,8 +48,20 @@ const STATUS_LABEL: Record<SessionStatus["status"], string> = {
 };
 
 export function AutoPanel({ currency }: { currency: string }) {
+  const bok = useIsBinarySurface();
   const { toKes, format } = useCurrency();
   const minStake = useMemo(() => Math.max(1, toKes(MIN_PLAY_USD)), [toKes]);
+  const accentIcon = bok ? "text-[var(--bok-lime,#b8ff2a)]" : "text-[#087cff]";
+  const accentLink = bok ? "text-[var(--bok-lime,#b8ff2a)] hover:underline" : "text-[#087cff] hover:underline";
+  const primaryCta = bok
+    ? "bok-dialog-cta w-full py-3.5 text-sm disabled:opacity-50"
+    : "w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50";
+  const fieldCls = bok
+    ? "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] focus:ring-[rgba(184,255,42,0.4)]"
+    : "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
+  const stakeCls = bok
+    ? "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] focus:ring-[rgba(184,255,42,0.4)]"
+    : "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
   // config
   const [market, setMarket] = useState("R_100");
   const [side, setSide] = useState<string>("Even");
@@ -127,10 +140,14 @@ export function AutoPanel({ currency }: { currency: string }) {
       <div className="flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[13px] font-black text-white">
-            <Icon name="smart_toy" className="text-[16px] text-[#087cff]" />
+            <Icon name="smart_toy" className={`text-[16px] ${accentIcon}`} />
             Auto-Trader
           </span>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${running ? "bg-[#05b957]/15 text-[#05b957]" : "bg-white/[0.08] text-slate-300"}`}>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+            running
+              ? bok ? "bg-[rgba(184,255,42,0.14)] text-[var(--bok-lime,#b8ff2a)]" : "bg-[#05b957]/15 text-[#05b957]"
+              : "bg-white/[0.08] text-slate-300"
+          }`}>
             {STATUS_LABEL[session.status]}
           </span>
         </div>
@@ -165,7 +182,7 @@ export function AutoPanel({ currency }: { currency: string }) {
         ) : (
           <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-center text-[11px] font-bold text-slate-400">
             Session ended — {session.stopReason ?? STATUS_LABEL[session.status]}.
-            <button type="button" onClick={() => { setSession(null); setTrades([]); }} className="ml-1 text-[#087cff] hover:underline">New session</button>
+            <button type="button" onClick={() => { setSession(null); setTrades([]); }} className={`ml-1 ${accentLink}`}>New session</button>
           </div>
         )}
 
@@ -198,7 +215,7 @@ export function AutoPanel({ currency }: { currency: string }) {
   return (
     <div className="flex flex-col gap-3 p-3">
       <span className="flex items-center gap-1.5 text-[13px] font-black text-white">
-        <Icon name="smart_toy" className="text-[16px] text-[#087cff]" />
+        <Icon name="smart_toy" className={`text-[16px] ${accentIcon}`} />
         Auto-Trader
       </span>
       <p className="-mt-1 text-[11px] font-bold text-slate-500">
@@ -206,13 +223,13 @@ export function AutoPanel({ currency }: { currency: string }) {
       </p>
 
       <Field label="Market">
-        <select value={market} onChange={(e) => setMarket(e.target.value)} className={selectCls}>
+        <select value={market} onChange={(e) => setMarket(e.target.value)} className={fieldCls}>
           {MARKETS.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
       </Field>
 
       <Field label="Contract">
-        <select value={side} onChange={(e) => setSide(e.target.value)} className={selectCls}>
+        <select value={side} onChange={(e) => setSide(e.target.value)} className={fieldCls}>
           {SIDES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </Field>
@@ -220,16 +237,16 @@ export function AutoPanel({ currency }: { currency: string }) {
       {needsDigit && (
         <Field label="Target digit (0–9)">
           <input type="number" min={0} max={9} value={targetDigit}
-            onChange={(e) => setTargetDigit(Math.max(0, Math.min(9, Number(e.target.value))))} className={inputCls} />
+            onChange={(e) => setTargetDigit(Math.max(0, Math.min(9, Number(e.target.value))))} className={stakeCls} />
         </Field>
       )}
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="Duration (ticks)">
-          <input type="number" min={1} max={30} value={duration} onChange={(e) => setDuration(Math.max(1, Math.min(30, Number(e.target.value))))} className={inputCls} />
+          <input type="number" min={1} max={30} value={duration} onChange={(e) => setDuration(Math.max(1, Math.min(30, Number(e.target.value))))} className={stakeCls} />
         </Field>
         <Field label="Base stake">
-          <StakeDraftInput value={baseStake} min={minStake} onCommit={setBaseStake} className={inputCls} />
+          <StakeDraftInput value={baseStake} min={minStake} onCommit={setBaseStake} className={stakeCls} />
           <p className="mt-1 text-[10px] font-medium text-slate-600">Min ${MIN_PLAY_USD} (~{format(minStake)})</p>
         </Field>
       </div>
@@ -238,7 +255,13 @@ export function AutoPanel({ currency }: { currency: string }) {
         <div className="grid grid-cols-2 gap-1.5">
           {STRATEGIES.map((s) => (
             <button key={s.id} type="button" onClick={() => setStrategy(s.id)} title={s.hint}
-              className={`rounded-xl px-2 py-2 text-[11px] font-black ring-1 transition ${strategy === s.id ? "bg-[#087cff] text-white ring-[#087cff]" : "bg-white/[0.04] text-slate-300 ring-white/[0.07] hover:bg-white/[0.07]"}`}>
+              className={`rounded-xl px-2 py-2 text-[11px] font-black ring-1 transition ${
+                strategy === s.id
+                  ? bok
+                    ? "bg-[var(--bok-lime,#b8ff2a)] text-[var(--bok-lime-ink,#0a0f00)] ring-[rgba(184,255,42,0.55)]"
+                    : "bg-[#087cff] text-white ring-[#087cff]"
+                  : "bg-white/[0.04] text-slate-300 ring-white/[0.07] hover:bg-white/[0.07]"
+              }`}>
               {s.label}
             </button>
           ))}
@@ -247,14 +270,14 @@ export function AutoPanel({ currency }: { currency: string }) {
 
       {strategy === "MARTINGALE" && (
         <Field label="Loss multiplier (1.1–5)">
-          <input type="number" min={1.1} max={5} step={0.1} value={multiplier} onChange={(e) => setMultiplier(Number(e.target.value))} className={inputCls} />
+          <input type="number" min={1.1} max={5} step={0.1} value={multiplier} onChange={(e) => setMultiplier(Number(e.target.value))} className={stakeCls} />
         </Field>
       )}
 
       <div className="grid grid-cols-3 gap-2">
-        <Field label="Take profit"><input type="number" min={1} value={takeProfit} onChange={(e) => setTakeProfit(Number(e.target.value))} className={inputCls} /></Field>
-        <Field label="Stop loss"><input type="number" min={1} value={stopLoss} onChange={(e) => setStopLoss(Number(e.target.value))} className={inputCls} /></Field>
-        <Field label="Max runs"><input type="number" min={1} max={500} value={maxRuns} onChange={(e) => setMaxRuns(Number(e.target.value))} className={inputCls} /></Field>
+        <Field label="Take profit"><input type="number" min={1} value={takeProfit} onChange={(e) => setTakeProfit(Number(e.target.value))} className={stakeCls} /></Field>
+        <Field label="Stop loss"><input type="number" min={1} value={stopLoss} onChange={(e) => setStopLoss(Number(e.target.value))} className={stakeCls} /></Field>
+        <Field label="Max runs"><input type="number" min={1} max={500} value={maxRuns} onChange={(e) => setMaxRuns(Number(e.target.value))} className={stakeCls} /></Field>
       </div>
 
       {error && (
@@ -263,8 +286,7 @@ export function AutoPanel({ currency }: { currency: string }) {
         </p>
       )}
 
-      <button type="button" onClick={start} disabled={busy}
-        className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50">
+      <button type="button" onClick={start} disabled={busy} className={primaryCta}>
         {busy ? <LoadingDots label="Starting" /> : "Run auto-trader"}
       </button>
       <p className="text-center text-[10px] font-bold text-slate-600">
@@ -273,9 +295,6 @@ export function AutoPanel({ currency }: { currency: string }) {
     </div>
   );
 }
-
-const selectCls = "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
-const inputCls = "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

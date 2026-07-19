@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import { useCurrency } from "@/lib/currency-context";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 
 type LeaderRow = {
   id: string;
@@ -49,10 +50,12 @@ function LeaderAvatar({
   username,
   imageUrl,
   size = 44,
+  bok = false,
 }: {
   username: string;
   imageUrl?: string | null;
   size?: number;
+  bok?: boolean;
 }) {
   const cls = "shrink-0 rounded-full object-cover ring-1 ring-white/[0.08]";
   if (imageUrl) {
@@ -71,9 +74,11 @@ function LeaderAvatar({
   }
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-500/30 to-sky-500/20 font-black text-white ring-1 ring-white/[0.08] ${
-        size >= 48 ? "text-[13px]" : "text-[12px]"
-      }`}
+      className={`grid shrink-0 place-items-center rounded-full font-black ring-1 ring-white/[0.08] ${
+        bok
+          ? "bg-[rgba(184,255,42,0.18)] text-[var(--bok-lime,#b8ff2a)]"
+          : "bg-gradient-to-br from-violet-500/30 to-sky-500/20 text-white"
+      } ${size >= 48 ? "text-[13px]" : "text-[12px]"}`}
       style={{ width: size, height: size }}
     >
       {initials(username)}
@@ -92,11 +97,21 @@ function Field({
   );
 }
 
-const inputCls =
-  "w-full rounded-xl bg-[#0c0e14] px-3.5 py-2.5 text-[14px] font-semibold text-white outline-none ring-1 ring-white/[0.08] transition focus:ring-emerald-500/40";
-
 export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const bok = useIsBinarySurface();
   const { format, toKes, currency: cc } = useCurrency();
+  const inputCls = bok
+    ? "w-full rounded-xl bg-[#0c0e14] px-3.5 py-2.5 text-[14px] font-semibold text-white outline-none ring-1 ring-white/[0.08] transition focus:ring-[rgba(184,255,42,0.45)]"
+    : "w-full rounded-xl bg-[#0c0e14] px-3.5 py-2.5 text-[14px] font-semibold text-white outline-none ring-1 ring-white/[0.08] transition focus:ring-emerald-500/40";
+  const primaryCta = bok
+    ? "bok-dialog-cta w-full py-3 text-[14px] disabled:cursor-not-allowed disabled:opacity-40"
+    : "w-full rounded-full bg-emerald-600 py-3 text-[14px] font-black text-white transition hover:bg-emerald-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40";
+  const followChip = bok
+    ? "bok-dialog-cta shrink-0 rounded-full px-3.5 py-2 text-[11px] disabled:opacity-40"
+    : "shrink-0 rounded-full bg-emerald-600 px-3.5 py-2 text-[11px] font-black text-white transition hover:bg-emerald-500 active:scale-[0.97] disabled:opacity-40";
+  const leadCta = bok
+    ? "bok-dialog-cta w-full py-3 text-[14px] disabled:cursor-not-allowed disabled:opacity-40"
+    : "w-full rounded-full bg-violet-600 py-3 text-[14px] font-black text-white transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40";
   const [enabled, setEnabled] = useState(true);
   const [leaders, setLeaders] = useState<LeaderRow[]>([]);
   const [follows, setFollows] = useState<FollowRow[]>([]);
@@ -233,9 +248,9 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-[#12151c] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-2xl ${
-          closing ? "animate-sheet-out" : "animate-sheet-in"
-        }`}
+        className={`bok-copy-panel relative flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl shadow-2xl ring-1 ring-white/[0.08] sm:rounded-2xl ${
+          bok ? "bg-black" : "bg-[#12151c]"
+        } ${closing ? "animate-sheet-out" : "animate-sheet-in"}`}
       >
         <button
           type="button"
@@ -247,7 +262,11 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
         </button>
 
         <div className="flex items-start gap-3 border-b border-white/[0.07] px-4 pb-3 pt-1 sm:pt-4">
-          <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-violet-300 ring-1 ring-violet-400/25">
+          <span className={`mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl ring-1 ${
+            bok
+              ? "bg-[rgba(184,255,42,0.12)] text-[var(--bok-lime,#b8ff2a)] ring-[rgba(184,255,42,0.28)]"
+              : "bg-violet-500/15 text-violet-300 ring-violet-400/25"
+          }`}>
             <Icon name="groups" className="text-[20px]" />
           </span>
           <div className="min-w-0 flex-1">
@@ -272,7 +291,9 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
           </div>
         )}
 
-        <div className="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-[#0c0e14] p-1 ring-1 ring-white/[0.06]">
+        <div className={`mx-4 mt-3 grid grid-cols-3 gap-1 rounded-xl p-1 ring-1 ${
+          bok ? "bg-white/[0.04] ring-white/[0.08]" : "bg-[#0c0e14] ring-white/[0.06]"
+        }`}>
           {([
             ["leaders", "Leaders"],
             ["following", "Following"],
@@ -282,9 +303,11 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
               key={k}
               type="button"
               onClick={() => { setTab(k); setPicked(null); }}
-              className={`rounded-lg py-2 text-[12px] font-black transition ${
+              className={`rounded-full py-2 text-[12px] font-black transition ${
                 tab === k
-                  ? "bg-white/[0.08] text-white shadow-sm"
+                  ? bok
+                    ? "bg-[var(--bok-lime,#b8ff2a)] text-[var(--bok-lime-ink,#0a0f00)]"
+                    : "bg-white/[0.08] text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-300"
               }`}
             >
@@ -326,7 +349,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                     className="rounded-2xl bg-[#0c0e14] p-3.5 ring-1 ring-white/[0.06] transition hover:ring-white/[0.1]"
                   >
                     <div className="flex items-start gap-3">
-                      <LeaderAvatar username={L.username} imageUrl={L.imageUrl} size={44} />
+                      <LeaderAvatar username={L.username} imageUrl={L.imageUrl} size={44} bok={bok} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[14px] font-black text-white">@{L.username}</p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -355,7 +378,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                         type="button"
                         disabled={!enabled}
                         onClick={() => { setPicked(L); setAcceptFollow(false); }}
-                        className="shrink-0 rounded-full bg-emerald-600 px-3.5 py-2 text-[11px] font-black text-white transition hover:bg-emerald-500 active:scale-[0.97] disabled:opacity-40"
+                        className={followChip}
                       >
                         Follow
                       </button>
@@ -378,7 +401,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
               </button>
 
               <div className="flex items-center gap-3 rounded-2xl bg-[#0c0e14] p-3.5 ring-1 ring-white/[0.06]">
-                <LeaderAvatar username={picked.username} imageUrl={picked.imageUrl} size={48} />
+                <LeaderAvatar username={picked.username} imageUrl={picked.imageUrl} size={48} bok={bok} />
                 <div>
                   <p className="text-[15px] font-black text-white">@{picked.username}</p>
                   <p className="text-[11px] text-slate-500">Set stake limits before you start</p>
@@ -398,9 +421,11 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                     key={mode}
                     type="button"
                     onClick={() => setStakeMode(mode)}
-                    className={`rounded-lg py-2 text-[11px] font-black transition ${
+                    className={`rounded-full py-2 text-[11px] font-black transition ${
                       stakeMode === mode
-                        ? "bg-emerald-600 text-white"
+                        ? bok
+                          ? "bg-[var(--bok-lime,#b8ff2a)] text-[var(--bok-lime-ink,#0a0f00)]"
+                          : "bg-emerald-600 text-white"
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
@@ -457,7 +482,9 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                   type="checkbox"
                   checked={acceptFollow}
                   onChange={(e) => setAcceptFollow(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent text-emerald-500"
+                  className={`mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent ${
+                    bok ? "text-[var(--bok-lime,#b8ff2a)] accent-[var(--bok-lime,#b8ff2a)]" : "text-emerald-500"
+                  }`}
                 />
                 I understand the risk disclosure
               </label>
@@ -466,7 +493,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                 type="button"
                 disabled={!acceptFollow}
                 onClick={() => void followLeader()}
-                className="w-full rounded-full bg-emerald-600 py-3 text-[14px] font-black text-white transition hover:bg-emerald-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className={primaryCta}
               >
                 Start copying
               </button>
@@ -531,12 +558,20 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
           {tab === "lead" && !loading && (
             <div className="space-y-4">
               {leaderProfile?.status === "ACTIVE" ? (
-                <div className="rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-400/25">
-                  <div className="flex items-center gap-2 text-emerald-300">
+                <div className={`rounded-2xl p-4 ring-1 ${
+                  bok
+                    ? "bg-[rgba(184,255,42,0.1)] ring-[rgba(184,255,42,0.28)]"
+                    : "bg-emerald-500/10 ring-emerald-400/25"
+                }`}>
+                  <div className={`flex items-center gap-2 ${
+                    bok ? "text-[var(--bok-lime,#b8ff2a)]" : "text-emerald-300"
+                  }`}>
                     <Icon name="check_circle" className="text-[20px]" />
                     <p className="text-[14px] font-black">You&apos;re an active leader</p>
                   </div>
-                  <p className="mt-2 text-[12px] leading-relaxed text-emerald-100/70">
+                  <p className={`mt-2 text-[12px] leading-relaxed ${
+                    bok ? "text-white/60" : "text-emerald-100/70"
+                  }`}>
                     Followers mirror your Even/Odd and Rise/Fall trades (5+ ticks).
                   </p>
                 </div>
@@ -555,7 +590,9 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                       type="checkbox"
                       checked={acceptLead}
                       onChange={(e) => setAcceptLead(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent text-violet-500"
+                      className={`mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent ${
+                        bok ? "text-[var(--bok-lime,#b8ff2a)] accent-[var(--bok-lime,#b8ff2a)]" : "text-violet-500"
+                      }`}
                     />
                     I accept and want to become a leader
                   </label>
@@ -563,7 +600,7 @@ export function CopyTradingPanel({ open, onClose }: { open: boolean; onClose: ()
                     type="button"
                     disabled={!acceptLead || !enabled}
                     onClick={() => void becomeLeader()}
-                    className="w-full rounded-full bg-violet-600 py-3 text-[14px] font-black text-white transition hover:bg-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className={leadCta}
                   >
                     Opt in as leader
                   </button>

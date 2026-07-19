@@ -18,7 +18,7 @@ export default function AppleIcon() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#0b1220",
+            background: "#000000",
             borderRadius: 40,
           }}
         >
@@ -29,9 +29,9 @@ export default function AppleIcon() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "#10b981",
+              background: "#b8ff2a",
               borderRadius: 28,
-              color: "#0b1220",
+              color: "#0a0f00",
               fontSize: 72,
               fontWeight: 800,
               fontFamily: "system-ui, sans-serif",
