@@ -22,9 +22,13 @@ export async function GET() {
     take: 50,
   });
 
+  // Prod: hide admin/house leaders from the public book. Staging sets
+  // COPY_SHOW_ADMIN_LEADERS=true so owners can dogfood copy end-to-end.
+  const hideAdminLeaders = process.env.COPY_SHOW_ADMIN_LEADERS !== "true";
+
   const out = [];
   for (const L of leaders) {
-    if (L.user.isAdmin) continue; // never expose admin leaders to cash followers
+    if (hideAdminLeaders && L.user.isAdmin) continue;
     const [digit, dir] = await Promise.all([
       db.binaryTrade.findMany({
         where: {
