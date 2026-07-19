@@ -49,8 +49,8 @@ export function isBinarySurface(opts?: ProductSurfaceOpts): boolean {
 }
 
 /** Brand shown in UI / emails when PRODUCT_SURFACE=binary. */
-export function surfaceBrand(): string {
-  if (isBinarySurface()) {
+export function surfaceBrand(opts?: ProductSurfaceOpts): string {
+  if (isBinarySurface(opts)) {
     return (process.env["NEXT_PUBLIC_BRAND_NAME"] ?? "BinaryOptionsKE").trim() || "BinaryOptionsKE";
   }
   return "Nezeem";
@@ -103,6 +103,8 @@ export function isBinaryAllowedPath(pathname: string): boolean {
     "/dashboard",
     "/2fa",
     "/suspended",
+    "/terms",
+    "/privacy",
     "/api/binary",
     "/api/wallet",
     "/api/webhooks",
