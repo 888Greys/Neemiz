@@ -1,0 +1,174 @@
+/* BinaryOptionsKE trading UI — Olymp-inspired, mobile-first.
+   Scoped to html[data-surface="binary"] so Nezeem /binary is untouched. */
+
+html[data-surface="binary"] {
+  --bok-bg: #000000;
+  --bok-panel: #0e0e0e;
+  --bok-panel-2: #161616;
+  --bok-lime: #b8ff2a;
+  --bok-lime-ink: #0a0f00;
+  --bok-up: #16a34a;
+  --bok-down: #e11d48;
+  --bok-muted: #8b8b8b;
+  --bok-line: rgba(255, 255, 255, 0.08);
+  --bok-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+html[data-surface="binary"] body {
+  background: var(--bok-bg);
+}
+
+/* ── App shell header: flush bar (no floating Nezeem pill) ───────── */
+html[data-surface="binary"] header.bok-shell-header {
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  height: calc(3.25rem + env(safe-area-inset-top)) !important;
+  padding-top: env(safe-area-inset-top) !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid var(--bok-line) !important;
+  background: rgba(0, 0, 0, 0.92) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+html[data-surface="binary"] .bok-shell-main-pad {
+  padding-top: calc(3.25rem + env(safe-area-inset-top)) !important;
+}
+
+@media (min-width: 1024px) {
+  html[data-surface="binary"] header.bok-shell-header {
+    height: 4.5rem !important;
+    padding-top: 0 !important;
+    background: #000 !important;
+    backdrop-filter: none !important;
+  }
+
+  html[data-surface="binary"] .bok-shell-main-pad {
+    padding-top: 4.5rem !important;
+  }
+}
+
+html[data-surface="binary"] .bok-auth-login {
+  border-radius: 9999px !important;
+  background: transparent !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+html[data-surface="binary"] .bok-auth-join {
+  border-radius: 9999px !important;
+  background: var(--bok-lime) !important;
+  color: var(--bok-lime-ink) !important;
+}
+
+html[data-surface="binary"] .bok-auth-join:hover {
+  filter: brightness(1.05);
+}
+
+/* ── Trader root ─────────────────────────────────────────────────── */
+.bok-trader {
+  background: var(--bok-bg) !important;
+  color: #fff;
+}
+
+.bok-trader [data-binary-grid] {
+  background: var(--bok-bg);
+}
+
+.bok-trader .bok-chart-section,
+.bok-trader .bok-trade-section {
+  background: var(--bok-panel) !important;
+  border-color: var(--bok-line) !important;
+}
+
+.bok-trader .bok-mobile-chrome {
+  background: linear-gradient(180deg, #000 72%, rgba(0, 0, 0, 0.94)) !important;
+  gap: 0.35rem !important;
+  padding-bottom: 0.4rem !important;
+}
+
+.bok-trader .bok-chip-active {
+  background: rgba(184, 255, 42, 0.14) !important;
+  color: var(--bok-lime) !important;
+  box-shadow: inset 0 0 0 1px rgba(184, 255, 42, 0.45);
+}
+
+.bok-trader .bok-chip-idle {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--bok-muted) !important;
+  box-shadow: inset 0 0 0 1px var(--bok-line);
+}
+
+.bok-trader .bok-chip-all,
+.bok-trader .bok-chip-copy {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.bok-trader .bok-chip-copy {
+  background: rgba(184, 255, 42, 0.1) !important;
+  color: var(--bok-lime) !important;
+  box-shadow: inset 0 0 0 1px rgba(184, 255, 42, 0.28);
+}
+
+.bok-trader .animate-flame {
+  display: none !important;
+}
+
+.bok-trader .bok-chip-fade {
+  background: linear-gradient(to left, #000, transparent) !important;
+}
+
+.bok-trader .bok-trade-dock {
+  max-height: min(52svh, 460px) !important;
+  border-radius: 1.25rem 1.25rem 0 0 !important;
+  border-top: 1px solid var(--bok-line) !important;
+  background: var(--bok-panel) !important;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+}
+
+@media (min-width: 768px) {
+  .bok-trader .bok-trade-dock {
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+.bok-trader .bok-mode-on {
+  background: var(--bok-lime) !important;
+  color: var(--bok-lime-ink) !important;
+}
+
+.bok-trader .bok-mode-off {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--bok-muted) !important;
+}
+
+.bok-trader .bok-digit-strip {
+  background: #000 !important;
+  border-top: 1px solid var(--bok-line);
+}
+
+.bok-trader .bok-pos-btn-on {
+  background: rgba(184, 255, 42, 0.14) !important;
+  color: var(--bok-lime) !important;
+  box-shadow: inset 0 0 0 1px rgba(184, 255, 42, 0.4);
+}
+
+.bok-trader .bok-pos-btn-off {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #d4d4d4 !important;
+  box-shadow: inset 0 0 0 1px var(--bok-line);
+}
+
+.bok-trader .bok-pos-badge {
+  background: var(--bok-lime) !important;
+  color: var(--bok-lime-ink) !important;
+}

@@ -130,8 +130,6 @@ export default async function middleware(request: NextRequest) {
     },
   });
 
-  const { pathname } = request.nextUrl;
-
   try {
     // Refresh session — IMPORTANT: do NOT remove this call
     const {
