@@ -1779,34 +1779,37 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   }, [levPlacing, levPos, stake, balance, liveBalance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
 
   // Settle a real directional trade via the server (authoritative exit tick).
+  // Keep server `won` for celebration gating; history/toast use credit vs stake
+  // so Vanilla partial ITM (LOST + BET_WIN) reads as PARTIAL, not full-stake LOST.
   const applyDirSettled = useCallback((t: DirTrade, data: { won: boolean; winAmount?: number }) => {
     if (dirSettled.current.has(t.id)) return;
     dirSettled.current.add(t.id);
-    const won = data.won;
+    const credit = Number(data.winAmount ?? 0) || 0;
+    const display = closedDisplayStatus(t.stake, credit);
     setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
     setClosedPositions((cur) => mergeClosedPositions([
       toDirectionalClosedPosition({
         ...t,
-        payout: won ? data.winAmount ?? t.payout : 0,
-        status: won ? "WON" : "LOST",
+        payout: credit,
+        status: data.won ? "WON" : "LOST",
         settledAt: new Date(),
       }),
     ], cur).slice(0, 40));
-    if (won) {
-      const credited = Number(data.winAmount ?? t.payout) || 0;
-      if (credited > 0 && t.isReal) {
-        setLiveBalance((b) => b + credited);
-        window.dispatchEvent(new Event("wallet-refresh"));
-      }
-      if (credited > 0) {
-        celebrateWin({
-          amount: credited,
-          multiplier: t.stake > 0 ? credited / t.stake : undefined,
-          label: `${t.side} won!`,
-          toastTitle: `${t.side} won!`,
-          toastDescription: `+${money(credited)} · ${t.market}`,
-        });
-      }
+    if (credit > 0 && t.isReal) {
+      setLiveBalance((b) => b + credit);
+      window.dispatchEvent(new Event("wallet-refresh"));
+    }
+    const pnl = credit - t.stake;
+    if (display === "won") {
+      celebrateWin({
+        amount: credit,
+        multiplier: t.stake > 0 ? credit / t.stake : undefined,
+        label: `${t.side} won!`,
+        toastTitle: `${t.side} won!`,
+        toastDescription: `+${money(pnl)} · ${t.market}`,
+      });
+    } else if (display === "partial") {
+      toast.info(`${t.side} partial`, `${t.market} · ${money(pnl)}`);
     } else {
       toast.loss(`${t.side} lost`, `${t.market} · Stake ${money(t.stake)}`);
     }
@@ -1847,24 +1850,29 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         }, path);
         if (!res.ready) continue;
         dirSettled.current.add(t.id);
+        const credit = res.credit;
+        const display = closedDisplayStatus(t.stake, credit);
         setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
         setClosedPositions((cur) => mergeClosedPositions([
           toDirectionalClosedPosition({
             ...t,
-            payout: res.won ? res.credit : 0,
+            payout: credit,
             status: res.won ? "WON" : "LOST",
             settledAt: new Date(),
           }),
         ], cur).slice(0, 40));
-        if (res.won) {
-          setDemoBalance((b) => b + res.credit);
+        if (credit > 0) setDemoBalance((b) => b + credit);
+        const pnl = credit - t.stake;
+        if (display === "won") {
           celebrateWin({
-            amount: res.credit,
-            multiplier: t.stake > 0 ? res.credit / t.stake : undefined,
+            amount: credit,
+            multiplier: t.stake > 0 ? credit / t.stake : undefined,
             label: `${t.side} won!`,
             toastTitle: `${t.side} won!`,
-            toastDescription: `+${money(res.credit)} · ${t.market}`,
+            toastDescription: `+${money(pnl)} · ${t.market}`,
           });
+        } else if (display === "partial") {
+          toast.info(`${t.side} partial`, `${t.market} · ${money(pnl)}`);
         } else {
           toast.loss(`${t.side} lost`, t.market);
         }
@@ -3018,9 +3026,23 @@ function DigitRing({ isActive, stat }: { isActive: boolean; stat: { digit: numbe
 }
 
 function ClosedPositionRow({ position }: { position: ClosedPosition }) {
-  const isWon = position.status === "won";
   const { convert, currency } = useCurrency();
   const money = (kes: number) => fmtMoney(kes, currency, convert);
+  const pnl = position.payout - position.stake;
+  const badge =
+    position.status === "won"
+      ? "bg-emerald-400/10 text-emerald-300"
+      : position.status === "partial"
+        ? "bg-amber-400/10 text-amber-300"
+        : "bg-red-400/10 text-red-300";
+  const pnlClass =
+    position.status === "won" ? "text-emerald-300" : "text-red-300";
+  const pnlLabel =
+    position.status === "won"
+      ? `+${money(pnl)}`
+      : position.status === "partial"
+        ? money(pnl)
+        : `-${money(position.stake)}`;
 
   return (
     <div className="border border-white/[0.07] bg-black/25 p-3">
@@ -3029,13 +3051,13 @@ function ClosedPositionRow({ position }: { position: ClosedPosition }) {
           <div className="text-sm font-black text-white">{position.title}</div>
           <div className="text-[11px] font-bold text-slate-500">{position.subtitle}</div>
         </div>
-        <span className={`rounded px-2 py-1 text-[10px] font-black ${isWon ? "bg-emerald-400/10 text-emerald-300" : "bg-red-400/10 text-red-300"}`}>
+        <span className={`rounded px-2 py-1 text-[10px] font-black ${badge}`}>
           {position.status.toUpperCase()}
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
         <span className="text-slate-500">Stake {money(position.stake)}</span>
-        <span className={isWon ? "text-emerald-300" : "text-red-300"}>{isWon ? `+${money(position.payout - position.stake)}` : `-${money(position.stake)}`}</span>
+        <span className={pnlClass}>{pnlLabel}</span>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-export type ClosedPositionStatus = "won" | "lost";
+export type ClosedPositionStatus = "won" | "lost" | "partial";
 
 export type ClosedPosition = {
   id: string;
@@ -23,9 +23,16 @@ function closedAt(input: { settledAt?: string | Date | null; createdAt?: string 
   return dateMs(input.settledAt) || dateMs(input.createdAt) || input.openedAt || Date.now();
 }
 
-function wonFromStatus(status: ApiStatus, payout: number | null | undefined): ClosedPositionStatus {
-  const s = String(status ?? "").toUpperCase();
-  if (s === "WON" || s === "CLOSED") return payout && payout > 0 ? "won" : s === "WON" ? "won" : "lost";
+/**
+ * UI label from credited amount vs stake. Server `won` (credit >= stake) stays
+ * unchanged for settle; Vanilla ITM partial credits are LOST in DB but must not
+ * render as a full-stake loss when money was returned.
+ */
+export function closedDisplayStatus(stake: number, credit: number): ClosedPositionStatus {
+  const s = Number(stake) || 0;
+  const c = Number(credit) || 0;
+  if (c > 0 && c < s) return "partial";
+  if (c >= s && c > 0) return "won";
   return "lost";
 }
 
@@ -60,13 +67,15 @@ export function toBinaryClosedPosition(input: {
 }): ClosedPosition {
   const stake = Number(input.stake) || 0;
   const payout = Number(input.payout) || 0;
+  // Digit rows store place-time potential payout even on LOST — never infer from payout.
+  const apiWon = String(input.status).toUpperCase() === "WON" || String(input.status).toLowerCase() === "won";
   return {
     id: input.id,
     title: input.side,
     subtitle: `${input.market} · digit ${input.entryDigit}${input.exitDigit == null ? "" : ` → ${input.exitDigit}`}`,
     stake,
     payout,
-    status: String(input.status).toUpperCase() === "WON" || String(input.status).toLowerCase() === "won" ? "won" : "lost",
+    status: apiWon ? "won" : "lost",
     closedAt: closedAt(input),
     isReal: input.isReal,
   };
@@ -94,7 +103,7 @@ export function toDirectionalClosedPosition(input: {
     subtitle: `${input.market} · ${input.kind.replaceAll("_", " ")}${input.durationTicks ? ` · ${input.durationTicks} ticks` : ""}`,
     stake,
     payout,
-    status: wonFromStatus(input.status, payout),
+    status: closedDisplayStatus(stake, payout),
     closedAt: closedAt(input),
     isReal: input.isReal,
   };
@@ -120,7 +129,7 @@ export function toAccumulatorClosedPosition(input: {
     subtitle: `${input.market}${input.ticksSurvived == null ? "" : ` · ${input.ticksSurvived} ticks`}`,
     stake,
     payout,
-    status: wonFromStatus(input.status, payout),
+    status: closedDisplayStatus(stake, payout),
     closedAt: closedAt(input),
     isReal: input.isReal,
   };
@@ -146,7 +155,7 @@ export function toLeveragedClosedPosition(input: {
     subtitle: input.market,
     stake,
     payout,
-    status: wonFromStatus(input.status, payout),
+    status: closedDisplayStatus(stake, payout),
     closedAt: closedAt(input),
     isReal: input.isReal,
   };

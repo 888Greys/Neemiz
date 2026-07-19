@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyServerBinaryDigits,
+  closedDisplayStatus,
   mergeClosedPositions,
   toAccumulatorClosedPosition,
   toBinaryClosedPosition,
@@ -116,5 +117,44 @@ describe("binary closed-position history", () => {
       settledAt: "2026-07-19T07:00:05.000Z",
     });
     expect(closed.subtitle).toBe("1HZ10V · digit 4 → 4");
+  });
+
+  it("labels Vanilla partial ITM credit as partial (not full-stake LOST)", () => {
+    // Live QA: PUT stake 1294, credit 1191.97, DB status LOST (won = credit >= stake).
+    expect(closedDisplayStatus(1294, 1191.97)).toBe("partial");
+    expect(closedDisplayStatus(1294, 0)).toBe("lost");
+    expect(closedDisplayStatus(1294, 1294)).toBe("won");
+    expect(closedDisplayStatus(1294, 1500)).toBe("won");
+
+    const row = toDirectionalClosedPosition({
+      id: "vanilla-partial",
+      market: "1HZ10V",
+      kind: "VANILLA",
+      side: "PUT",
+      stake: 1294,
+      payout: 1191.97,
+      status: "LOST",
+      durationTicks: 5,
+      createdAt: "2026-07-19T07:00:00.000Z",
+      settledAt: "2026-07-19T07:00:05.000Z",
+    });
+    expect(row.status).toBe("partial");
+    expect(row.payout - row.stake).toBeCloseTo(-102.03, 2);
+  });
+
+  it("does not treat digit place-time payout on LOST as a win", () => {
+    const lost = toBinaryClosedPosition({
+      id: "digit-lost",
+      market: "1HZ10V",
+      side: "Even",
+      stake: 10,
+      payout: 19,
+      entryDigit: 4,
+      exitDigit: 5,
+      status: "LOST",
+      createdAt: "2026-07-19T07:00:00.000Z",
+      settledAt: "2026-07-19T07:00:05.000Z",
+    });
+    expect(lost.status).toBe("lost");
   });
 });
