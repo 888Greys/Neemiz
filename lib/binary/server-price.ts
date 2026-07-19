@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { priceDirectionalContract, priceDigitContract, DEFAULT_CONFIG, type PricingConfig } from "@/lib/binary/pricing";
-import { exitDigitFromQuote, type DirectionalSide, type DigitSide } from "@/lib/binary/kernel";
+import { exitDigitFromQuote, type DirectionalKind, type DirectionalSide, type DigitSide } from "@/lib/binary/kernel";
 import { isUnderQuarantined } from "@/lib/binary/quarantine";
 
 export type FixedKind = "RISE_FALL" | "HIGHER_LOWER" | "TOUCH_NO_TOUCH";
@@ -120,7 +120,7 @@ export function isCalmDirectionalReject(reason: string): boolean {
 }
 
 /** Compact UI copy for priceDirectionalServer / quote rejection reasons. */
-export function shortDirectionalRejectReason(reason: string, kind?: FixedKind): string {
+export function shortDirectionalRejectReason(reason: string, kind?: DirectionalKind): string {
   if (isCalmDirectionalReject(reason)) return BARRIER_TOO_CLOSE_COPY;
   if (/insufficient market/i.test(reason)) return "Not enough data";
   if (/temporarily unavailable/i.test(reason)) return "Unavailable";
