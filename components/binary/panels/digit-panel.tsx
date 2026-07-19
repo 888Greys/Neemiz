@@ -220,7 +220,7 @@ export function DigitPanel({
         </div>
 
         {/* Calm Matches availability note — never a red Trade-failed toast. */}
-        {matchesReason && matchesReason !== "Pricing…" && (
+        {family === "matchDiffer" && matchesReason && matchesReason !== "Pricing…" && (
           <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
             {matchesReason}
           </p>

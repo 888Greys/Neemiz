@@ -123,6 +123,15 @@ describe("priceDirectionalServer", () => {
     ).toBe(BARRIER_TOO_CLOSE_COPY);
   });
 
+  it("shortDirectionalRejectReason maps win-prob gates to barrier-friendly copy for HL/Touch", () => {
+    expect(shortDirectionalRejectReason("win probability too high", "TOUCH_NO_TOUCH"))
+      .toBe("Can't price this barrier right now — move it farther or change duration");
+    expect(shortDirectionalRejectReason("near-certain outcome", "HIGHER_LOWER"))
+      .toBe("Can't price this barrier right now — move it farther or change duration");
+    expect(shortDirectionalRejectReason("win chance outside band", "RISE_FALL"))
+      .toBe("Unavailable");
+  });
+
   it("rejects deep-ITM HIGHER_LOWER under the tightened 80% Wilson cap", () => {
     // Barrier far below spot ⇒ HIGHER almost never wins; LOWER is near-certain.
     const barrier = START * (1 - 8 * SIGMA * Math.sqrt(8));
@@ -295,16 +304,34 @@ describe("priceDigitServer", () => {
   });
 
   it("shortDigitRejectReason maps gate copy for the Matches Buy label", () => {
-    expect(shortDigitRejectReason("digit distribution unstable (freq 17.5%)")).toBe(
+    expect(shortDigitRejectReason("digit distribution unstable (freq 17.5%)", "Matches")).toBe(
       "Matches unavailable for this digit — try another",
     );
-    expect(shortDigitRejectReason("insufficient conditional data")).toBe(
+    expect(shortDigitRejectReason("insufficient conditional data", "Matches")).toBe(
       "Matches unavailable for this digit — try another",
     );
     expect(
-      shortDigitRejectReason("This contract isn't available right now (digit distribution unstable)"),
+      shortDigitRejectReason(
+        "This contract isn't available right now (digit distribution unstable)",
+        "Matches",
+      ),
     ).toBe("Matches unavailable for this digit — try another");
-    expect(shortDigitRejectReason("entry digit required for Matches")).toBe("Pricing…");
+    expect(shortDigitRejectReason("entry digit required for Matches", "Matches")).toBe("Pricing…");
+  });
+
+  it("shortDigitRejectReason never says Matches on Over/Under", () => {
+    expect(shortDigitRejectReason("insufficient conditional data", "Over")).toBe(
+      "Over/Under unavailable for this setup — try another digit or longer duration",
+    );
+    expect(shortDigitRejectReason("Over/Under needs at least 5 ticks", "Under")).toBe(
+      "Over/Under unavailable for this setup — try another digit or longer duration",
+    );
+    expect(shortDigitRejectReason("Under is temporarily unavailable on this market", "Under")).toBe(
+      "Over/Under unavailable for this setup — try another digit or longer duration",
+    );
+    expect(shortDigitRejectReason("win probability too high", "Over")).toBe(
+      "Over/Under unavailable for this setup — try another digit or longer duration",
+    );
   });
 
   it("still allows Even/Odd on skewed ticks since they do not check digit stability", () => {

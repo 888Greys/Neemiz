@@ -51,7 +51,7 @@ import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
   MATCHES_FREQ_LO,
-  MATCHES_UNAVAILABLE_COPY,
+  digitUnavailableCopy,
   isCalmDigitAvailabilityReject,
   isCalmDirectionalReject,
   minBarrierOffsetPts,
@@ -1026,7 +1026,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   const digitRejectReason = useCallback((side: ContractSide): string | null => {
     const q = liveDigitQuotes[side];
-    if (q && !q.accepted) return shortDigitRejectReason(q.reason);
+    if (q && !q.accepted) return shortDigitRejectReason(q.reason, side);
     // Matches requires a live accepted quote — never offer on static preview.
     if (side === "Matches" && !q?.accepted) return "Pricing…";
     return null;
@@ -1151,7 +1151,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       return BARRIER_TOO_CLOSE_COPY;
     }
     const q = liveDirQuotes[side];
-    if (q && !q.accepted) return shortDirectionalRejectReason(q.reason);
+    if (q && !q.accepted) return shortDirectionalRejectReason(q.reason, dirKind);
     return null;
   }, [liveDirQuotes, dirKind, barrierOffset, minBarrierOffset]);
 
@@ -2069,7 +2069,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           setTransactions(prevTx);
           const err = data.error ?? "Could not place trade";
           if (isCalmDigitAvailabilityReject(err)) {
-            toast.info(MATCHES_UNAVAILABLE_COPY);
+            toast.info(digitUnavailableCopy(side));
           } else {
             toast.error("Trade failed", err);
           }

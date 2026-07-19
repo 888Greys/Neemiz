@@ -63,6 +63,10 @@ export const MATCHES_FREQ_HI = 0.12;
 export const MATCHES_UNAVAILABLE_COPY =
   "Matches unavailable for this digit — try another";
 
+/** Calm client copy when Over/Under is gated (conditional / duration / thin data). */
+export const OVER_UNDER_UNAVAILABLE_COPY =
+  "Over/Under unavailable for this setup — try another digit or longer duration";
+
 /** True for soft availability refusals — never surface as a scary "Trade failed". */
 export function isCalmDigitAvailabilityReject(reason: string): boolean {
   return (
@@ -72,15 +76,33 @@ export function isCalmDigitAvailabilityReject(reason: string): boolean {
   );
 }
 
+function isOverUnderSide(side?: DigitSide): boolean {
+  return side === "Over" || side === "Under";
+}
+
+/** Family-aware calm copy for digit quote / bet soft refusals. */
+export function digitUnavailableCopy(side?: DigitSide): string {
+  return isOverUnderSide(side) ? OVER_UNDER_UNAVAILABLE_COPY : MATCHES_UNAVAILABLE_COPY;
+}
+
 /** Compact UI copy for priceDigitServer / quote rejection reasons. */
-export function shortDigitRejectReason(reason: string): string {
-  if (isCalmDigitAvailabilityReject(reason)) return MATCHES_UNAVAILABLE_COPY;
+export function shortDigitRejectReason(reason: string, side?: DigitSide): string {
+  const overUnder = isOverUnderSide(side);
+  if (isCalmDigitAvailabilityReject(reason)) return digitUnavailableCopy(side);
   if (/insufficient market/i.test(reason)) return "Not enough data";
   if (/entry digit required/i.test(reason)) return "Pricing…";
-  if (/temporarily unavailable/i.test(reason)) return "Unavailable";
-  if (/needs at least/i.test(reason)) return "Duration too short";
+  if (/temporarily unavailable/i.test(reason)) {
+    return overUnder ? OVER_UNDER_UNAVAILABLE_COPY : "Unavailable";
+  }
+  if (/needs at least/i.test(reason)) {
+    return overUnder ? OVER_UNDER_UNAVAILABLE_COPY : "Duration too short";
+  }
   if (/priced ≤ 1×/i.test(reason)) return "Payout too low";
-  if (/win (probability|chance)/i.test(reason)) return "Not priceable";
+  if (/win (probability|chance)/i.test(reason)) {
+    if (overUnder) return OVER_UNDER_UNAVAILABLE_COPY;
+    if (side === "Matches") return MATCHES_UNAVAILABLE_COPY;
+    return "Unavailable";
+  }
   if (/cannot win/i.test(reason)) return "Cannot win";
   return reason.length > 28 ? `${reason.slice(0, 27)}…` : reason;
 }
@@ -88,19 +110,27 @@ export function shortDigitRejectReason(reason: string): string {
 /** Calm client copy when HL / Touch barrier is inside the server min distance. */
 export const BARRIER_TOO_CLOSE_COPY = "Move barrier farther from spot";
 
+/** Calm client copy when HL / Touch cannot be priced (win-prob / thin / near-certain). */
+export const BARRIER_NOT_PRICEABLE_COPY =
+  "Can't price this barrier right now — move it farther or change duration";
+
 /** Soft directional refusals — never surface as a scary "Trade failed". */
 export function isCalmDirectionalReject(reason: string): boolean {
   return /barrier too close/i.test(reason);
 }
 
 /** Compact UI copy for priceDirectionalServer / quote rejection reasons. */
-export function shortDirectionalRejectReason(reason: string): string {
+export function shortDirectionalRejectReason(reason: string, kind?: FixedKind): string {
   if (isCalmDirectionalReject(reason)) return BARRIER_TOO_CLOSE_COPY;
   if (/insufficient market/i.test(reason)) return "Not enough data";
   if (/temporarily unavailable/i.test(reason)) return "Unavailable";
   if (/1-tick Rise\/Fall/i.test(reason)) return "Duration too short";
   if (/priced ≤ 1×/i.test(reason)) return "Payout too low";
-  if (/win (probability|chance)|near.?certain/i.test(reason)) return "Not priceable";
+  if (/win (probability|chance)|near.?certain/i.test(reason)) {
+    return kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH"
+      ? BARRIER_NOT_PRICEABLE_COPY
+      : "Unavailable";
+  }
   if (/cannot win/i.test(reason)) return "Cannot win";
   if (/isn't available right now/i.test(reason)) return "Unavailable";
   return reason.length > 28 ? `${reason.slice(0, 27)}…` : reason;
