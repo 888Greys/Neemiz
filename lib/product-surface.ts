@@ -13,15 +13,14 @@
 export type ProductSurface = "full" | "binary";
 
 export function productSurface(): ProductSurface {
-  // Prefer public flag so client shells (nav) match the server container.
-  const raw = (
-    process.env.NEXT_PUBLIC_PRODUCT_SURFACE ??
-    process.env.PRODUCT_SURFACE ??
-    "full"
-  )
-    .trim()
-    .toLowerCase();
-  return raw === "binary" ? "binary" : "full";
+  // Runtime PRODUCT_SURFACE wins so one GHCR image can serve both Nezeem and
+  // BinaryKE. NEXT_PUBLIC_* is baked at build time and must not override the
+  // container env (empty/full bake would pin every host to Nezeem).
+  const runtime = process.env.PRODUCT_SURFACE?.trim().toLowerCase();
+  if (runtime === "binary" || runtime === "full") return runtime;
+
+  const pub = (process.env.NEXT_PUBLIC_PRODUCT_SURFACE ?? "full").trim().toLowerCase();
+  return pub === "binary" ? "binary" : "full";
 }
 
 export function isBinarySurface(): boolean {
