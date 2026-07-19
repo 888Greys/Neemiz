@@ -229,7 +229,7 @@ export function AutoPanel({ currency }: { currency: string }) {
           <input type="number" min={1} max={30} value={duration} onChange={(e) => setDuration(Math.max(1, Math.min(30, Number(e.target.value))))} className={inputCls} />
         </Field>
         <Field label="Base stake">
-          <input type="number" min={minStake} value={baseStake} onChange={(e) => setBaseStake(Math.max(minStake, Number(e.target.value)))} className={inputCls} />
+          <StakeDraftInput value={baseStake} min={minStake} onCommit={setBaseStake} className={inputCls} />
           <p className="mt-1 text-[10px] font-medium text-slate-600">Min ${MIN_PLAY_USD} (~{format(minStake)})</p>
         </Field>
       </div>
@@ -283,6 +283,52 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <p className="mb-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">{label}</p>
       {children}
     </div>
+  );
+}
+
+/** Draft while typing so clearing doesn’t snap back to min on every keystroke. */
+function StakeDraftInput({
+  value,
+  min,
+  onCommit,
+  className,
+}: {
+  value: number;
+  min: number;
+  onCommit: (n: number) => void;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft !== null ? draft : String(value);
+
+  function commit(raw: string) {
+    const cleaned = raw.replace(/[^0-9.]/g, "");
+    const n = Number(cleaned);
+    if (cleaned === "" || cleaned === "." || !Number.isFinite(n) || n <= 0) {
+      onCommit(min);
+    } else {
+      onCommit(Math.max(min, Math.round(n)));
+    }
+    setDraft(null);
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      value={shown}
+      onFocus={() => setDraft("")}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v === "" || /^\d*\.?\d*$/.test(v)) setDraft(v);
+      }}
+      onBlur={() => commit(draft ?? "")}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className={className}
+    />
   );
 }
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { StakeAmountField } from "@/components/binary/stake-amount-field";
 import { ValuePickerSheet } from "./digit-panel";
 import { TakeProfitSheet } from "./accumulators-panel";
 import { useCurrency } from "@/lib/currency-context";
@@ -62,8 +63,6 @@ export function LeveragedPanel({
   // canonical KES — incl. for the stop-loss `max={stake}` limit — only its
   // display/entry is converted to the active currency.
   const { convert, toKes, currency: cc } = useCurrency();
-  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
-  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
 
   if (position) return <RunningContract position={position} onCashOut={onCashOut} closing={closing} format={format} formatSpot={formatSpot} />;
 
@@ -138,22 +137,14 @@ export function LeveragedPanel({
         {/* Stake */}
         <div className={CARD}>
           <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
-          <div className="flex gap-1.5">
-            <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
-              </button>
-              <input type="number" value={stakeDisplay}
-                onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
-                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[14px] sm:text-[18px]" />
-              </button>
-            </div>
-            <span className={`${FIELD} px-2 text-[11px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
-          </div>
+          <StakeAmountField
+            stakeKes={stake}
+            setStakeKes={setStake}
+            minStakeKes={minStake}
+            unit={currency}
+            toDisplay={convert}
+            toKes={toKes}
+          />
           <div className="mt-1.5 grid grid-cols-6 gap-1">
             {stakePresets.map((amount) => (
               <button key={amount} type="button" onClick={() => setStake(amount)}
