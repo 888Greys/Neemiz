@@ -101,8 +101,9 @@ Helpers:
 - `isBinaryAllowedPath(pathname)` — everything else → `/binary`
 
 Gate (middleware in `proxy.ts`): on binary surface, non-allowed paths and
-`/dashboard` redirect to `/binary`. `/admin` is blocked on the Binary host
-(ops stay on Nezeem).
+`/dashboard` redirect to `/binary`. Guests keep `/` as the marketing landing;
+signed-in users hitting `/` are sent to `/binary` by `app/page.tsx`. `/admin`
+is blocked on the Binary host (ops stay on Nezeem).
 
 Client: `SiteConfigProvider` in `app/layout.tsx` → `useSiteConfig()` /
 `useIsBinarySurface()`.
@@ -115,6 +116,7 @@ Because other products are blocked, **customize Binary alone** by editing:
 
 | Area | Files |
 |------|-------|
+| Marketing home (`/`) | `components/binary-ke/landing-page.tsx` + `landing.css` — Olymp-style landing for guests; signed-in users redirect to `/binary` via `app/page.tsx` |
 | Terminal UI | `components/binary/*`, `app/binary/page.tsx` |
 | Wordmark | `components/brand-logo.tsx` (binary branch → **BinaryKE**) |
 | Favicon / apple icon | `app/icon.tsx`, `app/apple-icon.tsx` (read `PRODUCT_SURFACE` at runtime). Drop custom PNGs here if you want a designed mark — or replace `app/favicon.ico` (Binary host rewrites `/favicon.ico` → `/icon` in `proxy.ts`) |
