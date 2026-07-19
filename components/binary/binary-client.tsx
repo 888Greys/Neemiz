@@ -335,10 +335,6 @@ function retainedPayout(stake: number, grossPayout: number) {
   return stake + (grossPayout - stake) * 0.70;
 }
 
-function displayedPayout(stake: number, side: ContractSide, targetDigit: number) {
-  return previewDigitPayout(stake, side, targetDigit);
-}
-
 function familySides(family: ContractFamily): ContractSide[] {
   if (family === "evenOdd") return ["Even", "Odd"];
   if (family === "matchDiffer") return ["Matches", "Differs"];
@@ -956,6 +952,60 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     (s) => !(s === "Under" && isUnderQuarantined(marketSymbol)),
   );
 
+  // Live digit quotes from POST /api/binary/quote (priceDigitServer). Fallback:
+  // static previewDigitPayout when the feed/quote is unavailable.
+  const [liveDigitPayouts, setLiveDigitPayouts] = useState<Partial<Record<ContractSide, number>>>({});
+  const selectedSidesKey = selectedSides.join(",");
+  useEffect(() => {
+    if (!isDigitType || stake <= 0) return;
+    let cancelled = false;
+    const sides = selectedSidesKey.split(",").filter(Boolean) as ContractSide[];
+    if (!sides.length) return;
+
+    const fetchQuotes = async () => {
+      try {
+        const res = await fetch("/api/binary/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            market: market.derivSymbol,
+            sides,
+            stake,
+            targetDigit,
+            durationTicks: duration,
+          }),
+        });
+        const data = await res.json() as {
+          quotes?: Record<string, { accepted: boolean; payout?: number }>;
+        };
+        if (cancelled || !res.ok || !data.quotes) return;
+        setLiveDigitPayouts((prev) => {
+          const next: Partial<Record<ContractSide, number>> = { ...prev };
+          for (const side of sides) {
+            const q = data.quotes![side];
+            if (q?.accepted && typeof q.payout === "number") next[side] = q.payout;
+            else delete next[side];
+          }
+          return next;
+        });
+      } catch {
+        // Keep last live quote; digitPayoutFor falls back to preview if empty.
+      }
+    };
+
+    const debounce = setTimeout(fetchQuotes, 280);
+    const poll = setInterval(fetchQuotes, 3000);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounce);
+      clearInterval(poll);
+    };
+  }, [isDigitType, market.derivSymbol, stake, duration, targetDigit, selectedSidesKey]);
+
+  const digitPayoutFor = useCallback((side: ContractSide) => {
+    return liveDigitPayouts[side] ?? previewDigitPayout(stake, side, targetDigit);
+  }, [liveDigitPayouts, stake, targetDigit]);
+
   // Live net payout (what an accumulator cash-out would credit now).
   const accaNetPayout = accaPos
     ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
@@ -984,14 +1034,72 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     [latest.quote],
   );
   const minDurationTicks = dirKind === "RISE_FALL" && market.derivSymbol.startsWith("1HZ") ? 2 : 1;
-  // Fixed-payout preview (Rise/Fall, Higher/Lower, Touch/No-Touch).
+
+  // Live directional quotes (priceDirectionalServer) for fixed-payout kinds.
+  const [liveDirPayouts, setLiveDirPayouts] = useState<Partial<Record<DirectionalSide, number>>>({});
+  const dirSidesKey = dirSides.join(",");
+  const needsDirQuote = isDirectionalType && !isVanillaType && !!dirKind;
+  useEffect(() => {
+    if (!needsDirQuote || stake <= 0 || !dirKind) return;
+    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") && barrierOffset === 0) return;
+    let cancelled = false;
+    const sides = dirSidesKey.split(",").filter(Boolean) as DirectionalSide[];
+    if (!sides.length) return;
+
+    const fetchQuotes = async () => {
+      try {
+        const res = await fetch("/api/directional/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            market: market.derivSymbol,
+            kind: dirKind,
+            sides,
+            stake,
+            durationTicks: duration,
+            barrierOffset: dirKind === "RISE_FALL" ? 0 : barrierOffset,
+          }),
+        });
+        const data = await res.json() as {
+          quotes?: Record<string, { accepted: boolean; payout?: number }>;
+        };
+        if (cancelled || !res.ok || !data.quotes) return;
+        setLiveDirPayouts((prev) => {
+          const next: Partial<Record<DirectionalSide, number>> = { ...prev };
+          for (const side of sides) {
+            const q = data.quotes![side];
+            if (q?.accepted && typeof q.payout === "number") next[side] = q.payout;
+            else delete next[side];
+          }
+          return next;
+        });
+      } catch {
+        /* keep last / fall back to client preview */
+      }
+    };
+
+    const debounce = setTimeout(fetchQuotes, 280);
+    const poll = setInterval(fetchQuotes, 3000);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounce);
+      clearInterval(poll);
+    };
+  }, [needsDirQuote, dirKind, market.derivSymbol, stake, duration, barrierOffset, dirSidesKey]);
+
+  // Fixed-payout preview: prefer live server quote; else client estimate.
+  // Rise/Fall used to hardcode 1.90× + retention while place used Wilson pricing.
   const dirPayoutFor = (side: DirectionalSide): number => {
+    const live = liveDirPayouts[side];
+    if (typeof live === "number") return live;
     let rate = 1.90;
     if (dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") {
       if (!clientSigma) return 0;
       rate = dirPayoutRate({ kind: dirKind, side, entrySpot: latest.quote, barrier: latest.quote + barrierOffset, sigmaTick: clientSigma, durationTicks: duration });
     }
-    return retainedPayout(stake, stake * rate);
+    // Server fixed kinds do not apply client retention — only use it on the
+    // static fallback so a failed quote still shows something plausible.
+    return dirKind === "RISE_FALL" ? Number((stake * rate).toFixed(2)) : retainedPayout(stake, stake * rate);
   };
   // Vanilla preview: contracts bought (payout per in-the-money point), capped credit.
   const dirPayoutPerPoint = (side: DirectionalSide): number => {
@@ -1784,14 +1892,11 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       const entry = ticks[ticks.length - 1];
       if (needsSigma && !clientSigma) { toast.error("Not enough market data", "Wait for more ticks and try again."); return; }
       const barrier = dirKind === "RISE_FALL" ? null : Number((entry.quote + offset).toFixed(5));
-      let payout = retainedPayout(stake, stake * 1.90);
+      let payout = dirPayoutFor(side);
       let payoutPerPoint: number | null = null;
       if (dirKind === "VANILLA") {
         payout = 0;
         payoutPerPoint = vanillaPayoutPerPoint({ entrySpot: entry.quote, strike: barrier!, side: side as "CALL" | "PUT", sigmaTick: clientSigma!, durationTicks: duration, stake });
-      } else if (dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") {
-        const rate = dirPayoutRate({ kind: dirKind, side, entrySpot: entry.quote, barrier: barrier!, sigmaTick: clientSigma!, durationTicks: duration });
-        payout = retainedPayout(stake, stake * rate);
       }
       setDemoBalance((b) => b - stake);
       setDirTrades((cur) => [{
@@ -1802,7 +1907,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
-  }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
+  }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma, liveDirPayouts]);
 
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;
@@ -1823,7 +1928,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         market: market.symbol,
         side,
         stake,
-        payout: displayedPayout(stake, side, targetDigit),
+        payout: digitPayoutFor(side),
         entryDigit: latest.digit,
         targetDigit,
         openedAt: Date.now(),
@@ -1882,7 +1987,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         market:      market.symbol,
         side,
         stake,
-        payout:      displayedPayout(stake, side, targetDigit),
+        payout:      digitPayoutFor(side),
         entryDigit:  latest.digit,
         targetDigit,
         openedAt:    Date.now(),
@@ -2115,7 +2220,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 lastDigit={latest.digit}
                 stakePresets={stakePresets}
                 minStake={minStake}
-                payoutFor={(side) => displayedPayout(stake, side, targetDigit)}
+                payoutFor={digitPayoutFor}
                 format={money}
                 onTrade={placeTrade}
                 placing={placing}

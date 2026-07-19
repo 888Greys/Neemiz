@@ -163,7 +163,8 @@ describe("priceDigitServer", () => {
     }
   });
 
-  it("previews digit payouts with the same floor-based math as request pricing", () => {
+  it("static previewDigitPayout uses floor-based math (advisory fallback only)", () => {
+    // Live Buy labels / place use priceDigitServer via /api/binary/quote + bet.
     expect(previewDigitPayout(1000, "Even", 0)).toBe(1800);
     // Matches: winProb 0.1, edge 0.20 → floor((0.80/0.1)*100)/100 = 8.00
     expect(previewDigitPayout(1000, "Matches", 5)).toBe(8000);
