@@ -13,6 +13,7 @@ import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 import { registerDue } from "@/lib/settle-due-list";
 import { maxPlayStakeKes, minPlayStakeKes, normalizePlayStakeKes } from "@/lib/play-usd";
+import { enqueueDigitCopySignal, kickCopySignal, type DigitCopyParams } from "@/lib/copy-trading";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
@@ -166,6 +167,21 @@ export async function POST(req: Request) {
       durationTicks: result.durationTicks,
       settleBeforeMs: result.settleBefore.getTime(),
     });
+
+    // Copy trading: enqueue for active leaders (Even/Odd, ≥5 ticks). Never blocks the leader.
+    const copyParams: DigitCopyParams = {
+      market,
+      side: side as DigitSide,
+      targetDigit: targetDigit!,
+      durationTicks: ticks,
+    };
+    const signalId = await enqueueDigitCopySignal({
+      leaderUserId: dbUser.id,
+      tradeId: result.id,
+      stake: stakeVal,
+      params: copyParams,
+    });
+    kickCopySignal(signalId);
 
     return Response.json({
       tradeId: result.id,

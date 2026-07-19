@@ -52,6 +52,7 @@ import {
   toLeveragedClosedPosition,
   type ClosedPosition,
 } from "@/lib/binary/history";
+import { CopyTradingPanel } from "@/components/binary/copy-trading-panel";
 import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
@@ -175,6 +176,7 @@ type BinaryTrade = {
   settlesAt: number;
   status: TradeStatus;
   isReal?: boolean; // true when backed by real wallet
+  copyLeaderUsername?: string | null;
 };
 
 // A single in-flight accumulator contract. Deriv runs one at a time per symbol;
@@ -214,6 +216,7 @@ type DirTrade = {
   isReal: boolean;
   settlesAt: number;     // wall-clock estimate for the UI countdown / settle attempt
   status: "open" | "won" | "lost";
+  copyLeaderUsername?: string | null;
 };
 
 // A single in-flight leveraged contract (Multiplier or Turbo). One at a time per
@@ -699,6 +702,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   const [tradeType, setTradeType] = useState<TradeTypeId>(() => pickDefaultTradeType(liveTypes));
   // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
   const [autoMode, setAutoMode] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
@@ -823,29 +827,129 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   // Load persisted closed trades from DB on mount (live users only). History is
   // cross-family: digit, directional, accumulator and leveraged contracts all
-  // feed the same Closed tab, sorted by settlement time.
+  // feed the same Closed tab, sorted by settlement time. Also hydrate PENDING
+  // digit/directional rows (including server-placed copy fills) into Open.
   useEffect(() => {
     if (!isLive) return;
-    Promise.all([
-      fetch("/api/binary/history").then((r) => r.ok ? r.json() : []),
-      fetch("/api/directional/history").then((r) => r.ok ? r.json() : []),
-      fetch("/api/accumulator/history").then((r) => r.ok ? r.json() : []),
-      fetch("/api/leveraged/history").then((r) => r.ok ? r.json() : []),
-    ])
-      .then(([digits, directional, accumulators, leveraged]: [
-        Array<{ id: string; market: string; side: string; stake: number; payout: number; targetDigit: number; entryDigit: number; exitDigit?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
-        Array<{ id: string; market: string; kind: string; side: string; stake: number; payout?: number | null; durationTicks?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
-        Array<{ id: string; market: string; growthRate: number; stake: number; payout?: number | null; ticksSurvived?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
-        Array<{ id: string; market: string; kind: string; direction: string; stake: number; payout?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
-      ]) => {
+    let cancelled = false;
+
+    async function loadHistory() {
+      try {
+        const [digits, directional, accumulators, leveraged] = await Promise.all([
+          fetch("/api/binary/history").then((r) => r.ok ? r.json() : []),
+          fetch("/api/directional/history").then((r) => r.ok ? r.json() : []),
+          fetch("/api/accumulator/history").then((r) => r.ok ? r.json() : []),
+          fetch("/api/leveraged/history").then((r) => r.ok ? r.json() : []),
+        ]) as [
+          Array<{
+            id: string; market: string; side: string; stake: number; payout: number;
+            targetDigit: number; entryDigit: number; exitDigit?: number | null;
+            entryEpoch?: number | null; durationTicks: number; status: string;
+            settledAt?: string | null; createdAt: string; copyLeaderUsername?: string | null;
+          }>,
+          Array<{
+            id: string; market: string; kind: string; side: string; stake: number;
+            payout?: number | null; entrySpot?: number; entryEpoch?: number;
+            barrier?: number | null; payoutPerPoint?: number | null;
+            durationTicks?: number | null; status: string;
+            settledAt?: string | null; createdAt: string; copyLeaderUsername?: string | null;
+          }>,
+          Array<{ id: string; market: string; growthRate: number; stake: number; payout?: number | null; ticksSurvived?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+          Array<{ id: string; market: string; kind: string; direction: string; stake: number; payout?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+        ];
+        if (cancelled) return;
+
         setPersistedPositions(mergeClosedPositions(
           digits.filter((t) => t.status !== "PENDING").map((t) => toBinaryClosedPosition({ ...t, isReal: true })),
           directional.filter((t) => t.status !== "PENDING").map((t) => toDirectionalClosedPosition({ ...t, isReal: true })),
           accumulators.filter((t) => t.status !== "OPEN").map((t) => toAccumulatorClosedPosition({ ...t, isReal: true })),
           leveraged.filter((t) => t.status !== "OPEN").map((t) => toLeveragedClosedPosition({ ...t, isReal: true })),
         ));
-      })
-      .catch(() => {});
+
+        // Merge server PENDING into local open lists so copy fills and refreshes show.
+        const pendingDigits = digits.filter((t) => t.status === "PENDING");
+        if (pendingDigits.length) {
+          setOpenTrades((cur) => {
+            const byId = new Map(cur.map((t) => [t.id, t]));
+            for (const t of pendingDigits) {
+              if (byId.has(t.id)) {
+                const prev = byId.get(t.id)!;
+                if (t.copyLeaderUsername && !prev.copyLeaderUsername) {
+                  byId.set(t.id, { ...prev, copyLeaderUsername: t.copyLeaderUsername });
+                }
+                continue;
+              }
+              const mkt = MARKETS.find((m) => m.derivSymbol === t.market);
+              const openedAt = new Date(t.createdAt).getTime();
+              const entryEpochMs = (t.entryEpoch ?? Math.floor(openedAt / 1000)) * 1000;
+              const speedMs = mkt?.speedMs ?? 1000;
+              byId.set(t.id, {
+                id: t.id,
+                market: mkt?.symbol ?? t.market,
+                side: t.side as ContractSide,
+                stake: t.stake,
+                payout: t.payout,
+                entryDigit: t.entryDigit,
+                targetDigit: t.targetDigit,
+                openedAt,
+                settlesAt: entryEpochMs + t.durationTicks * speedMs,
+                status: "open",
+                isReal: true,
+                copyLeaderUsername: t.copyLeaderUsername ?? null,
+              });
+            }
+            return Array.from(byId.values()).slice(0, 12);
+          });
+        }
+
+        const pendingDir = directional.filter((t) => t.status === "PENDING");
+        if (pendingDir.length) {
+          setDirTrades((cur) => {
+            const byId = new Map(cur.map((t) => [t.id, t]));
+            for (const t of pendingDir) {
+              if (byId.has(t.id)) {
+                const prev = byId.get(t.id)!;
+                if (t.copyLeaderUsername && !prev.copyLeaderUsername) {
+                  byId.set(t.id, { ...prev, copyLeaderUsername: t.copyLeaderUsername });
+                }
+                continue;
+              }
+              const mkt = MARKETS.find((m) => m.derivSymbol === t.market);
+              const speedMs = mkt?.speedMs ?? 1000;
+              const entryEpoch = t.entryEpoch ?? Math.floor(Date.now() / 1000);
+              byId.set(t.id, {
+                id: t.id,
+                market: mkt?.symbol ?? t.market,
+                derivSymbol: t.market,
+                kind: t.kind as DirectionalKind,
+                side: t.side as DirectionalSide,
+                stake: t.stake,
+                payout: Number(t.payout ?? 0),
+                payoutPerPoint: t.payoutPerPoint ?? null,
+                entrySpot: Number(t.entrySpot ?? 0),
+                entryEpoch,
+                barrier: t.barrier ?? null,
+                durationTicks: t.durationTicks ?? 0,
+                isReal: true,
+                settlesAt: entryEpoch * 1000 + (t.durationTicks ?? 0) * speedMs,
+                status: "open",
+                copyLeaderUsername: t.copyLeaderUsername ?? null,
+              });
+            }
+            return Array.from(byId.values());
+          });
+        }
+      } catch {
+        /* transient */
+      }
+    }
+
+    void loadHistory();
+    const id = window.setInterval(() => { void loadHistory(); }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, [isLive]);
 
   // Merge session trades with persisted DB trades (dedup by id) and always sort
@@ -1292,6 +1396,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         id: t.id, title: t.side, subtitle: `${t.market} · digit ${t.entryDigit}`,
         stake: t.stake, value: t.payout, isReal: t.isReal ?? false, settlesAt: t.settlesAt,
         interim,
+        copyLeaderUsername: t.copyLeaderUsername ?? null,
       };
     }),
     ...dirTrades.filter((t) => t.status === "open").map((t) => {
@@ -1307,6 +1412,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         subtitle: `${t.market} · ${t.durationTicks} ticks`,
         stake: t.stake, value: t.kind === "VANILLA" ? t.stake : t.payout, isReal: t.isReal, settlesAt: t.settlesAt,
         interim,
+        copyLeaderUsername: t.copyLeaderUsername ?? null,
       };
     }),
     ...(accaPos ? [{
@@ -2167,6 +2273,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] md:pb-0">
+      <CopyTradingPanel open={copyOpen} onClose={() => setCopyOpen(false)} />
       <div
         data-binary-grid="true"
         className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 md:grid md:gap-0 md:overflow-hidden md:border-b md:border-white/[0.08] ${
@@ -2222,11 +2329,20 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   </span>
                 </span>
               </button>
-              {streamStatus === "fallback" && (
-                <span className="max-w-[240px] truncate text-[11px] font-medium text-amber-400">
-                  {streamError ?? "Fallback ticks"}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {streamStatus === "fallback" && (
+                  <span className="max-w-[240px] truncate text-[11px] font-medium text-amber-400">
+                    {streamError ?? "Fallback ticks"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCopyOpen(true)}
+                  className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-slate-300 ring-1 ring-white/[0.08] transition hover:bg-white/[0.07] hover:text-white"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
 
             <div className="relative min-h-0 flex-1">
@@ -2252,6 +2368,13 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
                   >
                     View all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCopyOpen(true)}
+                    className="shrink-0 whitespace-nowrap rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-black text-slate-300"
+                  >
+                    Copy
                   </button>
                 </div>
                 <button
@@ -2348,6 +2471,14 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   {label === "Auto" ? "⚡ Auto" : label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setCopyOpen(true)}
+                className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.07] hover:text-white"
+                title="Copy trading"
+              >
+                Copy
+              </button>
             </div>
 
             {autoMode ? (
@@ -2836,6 +2967,7 @@ type OpenPositionView = {
   settlesAt?: number;       // fixed-duration types show a countdown; cash-out types show "LIVE"
   /** Best-effort live vs rule — digit/directional only; Acca/Lev stay LIVE. */
   interim?: InterimStatus;
+  copyLeaderUsername?: string | null;
 };
 
 interface ActivityPanelProps {
@@ -3110,6 +3242,11 @@ function ClosedPositionRow({ position }: { position: ClosedPosition }) {
         <div>
           <div className="text-sm font-black text-white">{position.title}</div>
           <div className="text-[11px] font-bold text-slate-500">{position.subtitle}</div>
+          {position.copyLeaderUsername && (
+            <div className="mt-1 text-[10px] font-bold text-sky-400/90">
+              Copied from @{position.copyLeaderUsername}
+            </div>
+          )}
         </div>
         <span className={`rounded px-2 py-1 text-[10px] font-black ${badge}`}>
           {position.status.toUpperCase()}
@@ -3158,6 +3295,11 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
         <div className="min-w-0">
           <div className="truncate text-sm font-black text-white">{pos.title}</div>
           <div className="truncate text-[11px] font-bold text-slate-500">{pos.subtitle}</div>
+          {pos.copyLeaderUsername && (
+            <div className="mt-1 truncate text-[10px] font-bold text-sky-400/90">
+              Copied from @{pos.copyLeaderUsername}
+            </div>
+          )}
           {statusLabel && (
             <div className={`mt-1 text-[10px] font-bold tracking-wide ${
               interim === "winning" ? "text-emerald-400/90"

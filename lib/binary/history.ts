@@ -9,6 +9,8 @@ export type ClosedPosition = {
   status: ClosedPositionStatus;
   closedAt: number;
   isReal?: boolean;
+  /** Set when this row was mirrored from a copy leader. */
+  copyLeaderUsername?: string | null;
 };
 
 type ApiStatus = string | null | undefined;
@@ -64,6 +66,7 @@ export function toBinaryClosedPosition(input: {
   createdAt?: string | Date | null;
   openedAt?: number;
   isReal?: boolean;
+  copyLeaderUsername?: string | null;
 }): ClosedPosition {
   const stake = Number(input.stake) || 0;
   const payout = Number(input.payout) || 0;
@@ -78,6 +81,7 @@ export function toBinaryClosedPosition(input: {
     status: apiWon ? "won" : "lost",
     closedAt: closedAt(input),
     isReal: input.isReal,
+    copyLeaderUsername: input.copyLeaderUsername ?? null,
   };
 }
 
@@ -93,6 +97,7 @@ export function toDirectionalClosedPosition(input: {
   settledAt?: string | Date | null;
   createdAt?: string | Date | null;
   isReal?: boolean;
+  copyLeaderUsername?: string | null;
 }): ClosedPosition {
   const stake = Number(input.stake) || 0;
   const payout = Number(input.payout ?? 0) || 0;
@@ -106,6 +111,7 @@ export function toDirectionalClosedPosition(input: {
     status: closedDisplayStatus(stake, payout),
     closedAt: closedAt(input),
     isReal: input.isReal,
+    copyLeaderUsername: input.copyLeaderUsername ?? null,
   };
 }
 

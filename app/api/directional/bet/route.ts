@@ -15,6 +15,7 @@ import { priceDirectionalServer, type FixedKind } from "@/lib/binary/server-pric
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 import { registerDue } from "@/lib/settle-due-list";
 import { maxPlayStakeKes, minPlayStakeKes, normalizePlayStakeKes } from "@/lib/play-usd";
+import { enqueueDirectionalCopySignal, kickCopySignal, type DirectionalCopyParams } from "@/lib/copy-trading";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
@@ -184,6 +185,23 @@ export async function POST(req: Request) {
       dueEpoch: trade.entryEpoch + 1,
       settleBeforeMs: trade.settleBefore.getTime(),
     });
+
+    if (kind === "RISE_FALL") {
+      const copyParams: DirectionalCopyParams = {
+        market,
+        kind: "RISE_FALL",
+        side: side as DirectionalSide,
+        durationTicks: ticks,
+        barrierOffset: 0,
+      };
+      const signalId = await enqueueDirectionalCopySignal({
+        leaderUserId: dbUser.id,
+        tradeId: trade.id,
+        stake: stakeVal,
+        params: copyParams,
+      });
+      kickCopySignal(signalId);
+    }
 
     return Response.json({
       tradeId: trade.id, kind, side, entrySpot, entryEpoch, barrier, payoutPerPoint,
