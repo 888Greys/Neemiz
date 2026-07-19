@@ -226,9 +226,14 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <BalanceVisibilityProvider>
-    <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      {/* Same top chrome on every surface — logo, balance, profile, bell */}
-      <header className="flex fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-10 rounded-full border border-white/[0.05] bg-[#18191d]/50 px-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none">
+    <div className={`min-h-screen overflow-x-hidden text-on-surface ${binaryOnly ? "bg-black" : "bg-background"}`}>
+      {/* Same top chrome on every surface — logo, balance, profile, bell.
+          BinaryKE: flush Olymp-style bar (see trader.css .bok-shell-header). */}
+      <header className={`flex fixed z-50 items-center overflow-visible ${
+        binaryOnly
+          ? "bok-shell-header left-0 right-0 top-0 h-[calc(3.25rem+env(safe-area-inset-top))] px-3 pt-[env(safe-area-inset-top)] border-b border-white/[0.08] bg-black/90 backdrop-blur-xl lg:h-[4.5rem] lg:pt-0 lg:bg-black lg:backdrop-blur-none"
+          : "left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-10 rounded-full border border-white/[0.05] bg-[#18191d]/50 px-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none"
+      }`}>
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -288,7 +293,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               </button>
             )}
             <BrandLogo href={binaryOnly ? "/binary" : "/dashboard"} size="sm" />
-            <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
+            <nav className={`hidden items-center gap-0.5 p-1 text-sm font-black md:flex ${
+              binaryOnly
+                ? "rounded-full bg-white/[0.04] ring-1 ring-white/[0.08]"
+                : "rounded-2xl bg-[#18191d] ring-1 ring-white/[0.06]"
+            }`}>
               {binaryOnly ? (
                 <TopNavLink href="/binary" icon="candlestick_chart" label="Trade" pathname={pathname} />
               ) : (
@@ -344,25 +353,35 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
               <button
                 onClick={() => setLoginOpen(true)}
-                className="rounded-lg bg-white/[0.06] px-2.5 py-2 text-[11px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.1] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className={
+                  binaryOnly
+                    ? "bok-auth-login rounded-full px-3 py-2 text-[11px] font-black text-white transition hover:bg-white/[0.06] active:scale-[0.97] sm:px-4 sm:text-xs md:px-5 md:text-sm"
+                    : "rounded-lg bg-white/[0.06] px-2.5 py-2 text-[11px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.1] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                }
                 type="button"
               >
                 Login
               </button>
               <button
                 onClick={() => setRegisterOpen(true)}
-                className="rounded-lg bg-emerald-800 px-2.5 py-2 text-[11px] font-black text-emerald-50 transition hover:bg-emerald-700 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className={
+                  binaryOnly
+                    ? "bok-auth-join rounded-full px-3 py-2 text-[11px] font-black transition active:scale-[0.97] sm:px-4 sm:text-xs md:px-5 md:text-sm"
+                    : "rounded-lg bg-emerald-800 px-2.5 py-2 text-[11px] font-black text-emerald-50 transition hover:bg-emerald-700 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                }
                 type="button"
               >
-                <span className="sm:hidden">Join</span>
-                <span className="hidden sm:inline">Registration</span>
+                <span className="sm:hidden">{binaryOnly ? "Start" : "Join"}</span>
+                <span className="hidden sm:inline">{binaryOnly ? "Try for free" : "Registration"}</span>
               </button>
             </div>
           )}
         </div>
       </header>
 
-      <div className={`flex overflow-hidden pt-14 lg:pt-20 ${immersive || fullHeight ? "h-[100dvh]" : "h-screen"}`}>
+      <div className={`flex overflow-hidden ${
+        binaryOnly ? "bok-shell-main-pad pt-[calc(3.25rem+env(safe-area-inset-top))] lg:pt-[4.5rem]" : "pt-14 lg:pt-20"
+      } ${immersive || fullHeight ? "h-[100dvh]" : "h-screen"}`}>
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -491,6 +510,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 }
 
 function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
+  const binaryOnly = useIsBinarySurface();
   const { balance } = useWalletBalance();
   const { convert, currency: displayCurrency, code } = useCurrency();
   const { hidden, toggle } = useBalanceVisibility();
@@ -501,7 +521,11 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
   });
 
   return (
-    <div className="flex items-center gap-1 rounded-full bg-[#18191d] py-1 pl-3 pr-1.5 ring-1 ring-white/[0.08]">
+    <div className={`flex items-center gap-1 rounded-full py-1 pl-3 pr-1.5 ${
+      binaryOnly
+        ? "bok-balance-chip"
+        : "bg-[#18191d] ring-1 ring-white/[0.08]"
+    }`}>
       <button
         type="button"
         onClick={onOpen}
@@ -512,7 +536,7 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
         <span className="text-[13px] font-black tabular-nums tracking-wide text-white">
           {hidden ? "* * *" : shown}
         </span>
-        <span className="text-[10px] font-bold text-slate-400">{code}</span>
+        <span className={`text-[10px] font-bold ${binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-slate-400"}`}>{code}</span>
       </button>
       <button
         type="button"
@@ -532,6 +556,7 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
 
 function TopNavLink({ href, icon, label, pathname }: { href: string; icon: string; label: string; pathname: string }) {
   const router = useRouter();
+  const binaryOnly = useIsBinarySurface();
   const active = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   return (
@@ -540,10 +565,18 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
       prefetch={false}
       onPointerEnter={() => router.prefetch(href)}
       onFocus={() => router.prefetch(href)}
-      className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
-        active
-          ? "bg-gradient-to-b from-[#2b8bff] to-[#0a6ef0] text-white ring-1 ring-inset ring-white/15"
-          : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+      className={`flex items-center gap-1.5 px-4 py-2.5 transition-all duration-150 focus-visible:outline-none ${
+        binaryOnly
+          ? `rounded-full ${
+              active
+                ? "bg-[var(--bok-lime,#b8ff2a)] text-[var(--bok-lime-ink,#0a0f00)]"
+                : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+            }`
+          : `rounded-xl focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
+              active
+                ? "bg-gradient-to-b from-[#2b8bff] to-[#0a6ef0] text-white ring-1 ring-inset ring-white/15"
+                : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            }`
       }`}
     >
       <Icon name={icon} fill={active} className="text-[17px]" />
@@ -553,6 +586,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
 }
 
 function UserAvatar({ src, initials, className }: { src?: string | null; initials: string; className: string }) {
+  const binaryOnly = useIsBinarySurface();
   if (src) {
     return (
       <img
@@ -565,7 +599,9 @@ function UserAvatar({ src, initials, className }: { src?: string | null; initial
   }
 
   return (
-    <span className={`${className} flex items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white`}>
+    <span className={`${className} flex items-center justify-center rounded-full text-sm font-black ${
+      binaryOnly ? "bok-avatar-fallback" : "bg-[#087cff] text-white"
+    }`}>
       {initials}
     </span>
   );
@@ -667,14 +703,21 @@ function StandaloneSidebarItem({
   pathname: string;
   tab?: string;
 }) {
+  const binaryOnly = useIsBinarySurface();
   const active = !onClick && sidebarItemActive(pathname, href, tab);
-  const cls = `flex items-center rounded-lg text-[12px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+  const cls = `flex items-center rounded-lg text-[12px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+    binaryOnly ? "focus-visible:ring-[rgba(184,255,42,0.55)]" : "focus-visible:ring-[#087cff]/70"
+  } ${
     collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
   } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`;
 
   const inner = (
     <>
-      <Icon name={icon} fill={active} className={`text-[18px] ${active ? "text-[#087cff]" : "text-slate-400"}`} />
+      <Icon name={icon} fill={active} className={`text-[18px] ${
+        active
+          ? binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-[#087cff]"
+          : "text-slate-400"
+      }`} />
       {!collapsed && (
         <>
           <span className="flex-1">{label}</span>
@@ -913,7 +956,11 @@ function MobileMenuDrawer({
               </button>
               <button
                 onClick={onOpenRegister}
-                className="rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
+                className={
+                  binaryOnly
+                    ? "bok-dialog-cta rounded-xl py-3 text-[13px]"
+                    : "rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
+                }
                 type="button"
               >
                 Register

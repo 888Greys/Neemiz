@@ -7,6 +7,7 @@ import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { useCurrency } from "@/lib/currency-context";
 import { digitWinCondition, formatPayoutWithReturn } from "@/lib/binary/display";
 import { MIN_OVER_UNDER_TICKS } from "@/lib/binary/server-price";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -66,6 +67,7 @@ export function DigitPanel({
 }) {
   // Stake is canonical KES; show/enter it in the active display currency.
   const { convert, toKes, currency: cc } = useCurrency();
+  const bok = useIsBinarySurface();
   // Even/Odd is decided purely by the exit digit's parity — no barrier digit.
   const needsTarget = family !== "evenOdd";
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
@@ -199,10 +201,13 @@ export function DigitPanel({
                     onClick={() => setTargetDigit(d)}
                     title={lessAvail ? "Busy — auto-skips for Matches" : undefined}
                     className={`relative rounded-md py-1.5 font-mono text-[14px] font-black transition sm:py-2 sm:text-[15px] ${
-                      active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
-                             : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_14px_rgba(245,185,66,0.45)]"
-                             : lessAvail ? "bg-[#0f1319] text-slate-600 hover:text-slate-400"
-                             : "bg-[#0f1319] text-slate-400 hover:text-white"
+                      active
+                        ? bok
+                          ? "bg-[#3a414d] text-white ring-1 ring-[rgba(184,255,42,0.55)]"
+                          : "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                        : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_14px_rgba(245,185,66,0.45)]"
+                        : lessAvail ? "bg-[#0f1319] text-slate-600 hover:text-slate-400"
+                        : "bg-[#0f1319] text-slate-400 hover:text-white"
                     }`}>
                     {/* Live last digit: the highlight pops onto the current digit each
                         tick (key changes → animation re-fires), so it visibly "moves". */}
@@ -317,6 +322,7 @@ function MobileDerivDigits({
   placing: boolean;
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
+  const bok = useIsBinarySurface();
   const armedRed = RED_SIDES.has(selectedSide);
   const selectedReason = rejectReasonFor(selectedSide);
   const buyDisabled = !!selectedReason || placing;
@@ -337,8 +343,9 @@ function MobileDerivDigits({
   const [expanded, setExpanded] = useState(false);
   const handleOpen = needsTarget ? gridOpen : expanded;
 
-  const fieldCard =
-    "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+  const fieldCard = bok
+    ? "flex flex-col items-start rounded-2xl bg-[#161616] px-3.5 py-3 text-left ring-1 ring-white/[0.06] transition active:scale-[0.99]"
+    : "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
   return (
     <div className="flex h-full min-h-0 flex-col sm:hidden">
@@ -361,7 +368,9 @@ function MobileDerivDigits({
           {winLine}
         </p>
         {/* Side toggle — text only (no icon), slim pills (Deriv-style) */}
-        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
+        <div className={`grid grid-cols-2 gap-1 rounded-full p-1 ring-1 ${
+          bok ? "bg-black ring-white/[0.08]" : "bg-[#0f1319] ring-white/[0.06]"
+        }`}>
           {sides.map((side) => {
             const active = side === selectedSide;
             const red = RED_SIDES.has(side);
@@ -370,11 +379,13 @@ function MobileDerivDigits({
                 key={side}
                 type="button"
                 onClick={() => onArmSide(side)}
-                className={`flex items-center justify-center rounded-full py-2 text-[13px] font-black transition active:scale-[0.98] ${
+                className={`flex items-center justify-center rounded-full py-2.5 text-[13px] font-black transition active:scale-[0.98] ${
                   active
                     ? red
-                      ? "bg-[#e2474b] text-white"
-                      : "bg-[#16a085] text-white"
+                      ? "bg-[#e11d48] text-white"
+                      : bok
+                        ? "bg-[#16a34a] text-white"
+                        : "bg-[#16a085] text-white"
                     : "text-slate-400"
                 }`}
               >
@@ -404,10 +415,13 @@ function MobileDerivDigits({
                     onClick={() => setTargetDigit(d)}
                     title={lessAvail ? "Busy — auto-skips for Matches" : undefined}
                     className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
-                      active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
-                             : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_16px_rgba(245,185,66,0.5)]"
-                             : lessAvail ? "bg-[#0f1319] text-slate-600"
-                             : "bg-[#0f1319] text-slate-400"
+                      active
+                        ? bok
+                          ? "bg-[#3a414d] text-white ring-1 ring-[rgba(184,255,42,0.55)]"
+                          : "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                        : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_16px_rgba(245,185,66,0.5)]"
+                        : lessAvail ? "bg-[#0f1319] text-slate-600"
+                        : "bg-[#0f1319] text-slate-400"
                     }`}>
                     <span key={isLast ? `l${lastDigit}` : "s"} className={isLast ? "inline-block animate-digit-pop" : undefined}>{d}</span>
                     {isLast && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
@@ -470,11 +484,15 @@ function MobileDerivDigits({
           disabled={buyDisabled}
           title={buySub ?? undefined}
           aria-busy={placing}
-          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${
-            armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full text-center font-black text-white transition-transform active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${
+            bok ? "py-3.5" : "py-2.5"
+          } ${
+            armedRed
+              ? bok ? "bg-[#e11d48] active:bg-[#f43f5e]" : "bg-[#e2474b] active:bg-[#ec5a5e]"
+              : bok ? "bg-[#16a34a] active:bg-[#22c55e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
-          <span className="text-[15px] leading-tight">
+          <span className={`leading-tight ${bok ? "text-[16px]" : "text-[15px]"}`}>
             {buySub && buySub !== "Pricing…" ? actionLabel(selectedSide) : `Buy ${actionLabel(selectedSide)}`}
           </span>
           <span className="font-mono text-[11px] leading-tight text-white/85">
@@ -661,6 +679,7 @@ function ActivePositions({
   positions: { id: string; side: ContractSide; settlesAt: number }[];
   format: (v: number) => string;
 }) {
+  const bok = useIsBinarySurface();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
@@ -673,11 +692,21 @@ function ActivePositions({
 
   return (
     <div className="shrink-0 px-2">
-      <div className="flex items-center justify-between rounded-lg bg-[#101722] px-3 py-2 ring-1 ring-sky-400/25">
-        <span className="flex items-center gap-2 text-[12px] font-black text-sky-200">
+      <div className={`flex items-center justify-between rounded-lg px-3 py-2 ring-1 ${
+        bok
+          ? "bg-[#161616] ring-[rgba(184,255,42,0.28)]"
+          : "bg-[#101722] ring-sky-400/25"
+      }`}>
+        <span className={`flex items-center gap-2 text-[12px] font-black ${
+          bok ? "text-[var(--bok-lime,#b8ff2a)]" : "text-sky-200"
+        }`}>
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400/70" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-400" />
+            <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${
+              bok ? "bg-[rgba(184,255,42,0.7)]" : "bg-sky-400/70"
+            }`} />
+            <span className={`relative inline-flex h-2 w-2 rounded-full ${
+              bok ? "bg-[var(--bok-lime,#b8ff2a)]" : "bg-sky-400"
+            }`} />
           </span>
           {positions.length} active {positions.length === 1 ? "trade" : "trades"}
         </span>

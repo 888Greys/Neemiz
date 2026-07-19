@@ -33,12 +33,20 @@ import {
   type InterimStatus,
 } from "@/lib/binary/display";
 
-// Blue/white theme for the shared live chart engine.
+// Blue/white theme for the shared live chart engine (Nezeem).
 const BINARY_THEME: LiveChartTheme = {
   bg: "#151518",
   up: "#3b82f6", down: "#ef4444",
   areaTop: "rgba(59,130,246,0.28)", areaBottom: "rgba(59,130,246,0.02)",
   dot: "#ffffff", stub: "rgba(59,130,246,0.9)", lineColor: "#e5edf8",
+};
+
+// BinaryKE — lime/white on pure black (Olymp-adjacent).
+const BOK_THEME: LiveChartTheme = {
+  bg: "#000000",
+  up: "#b8ff2a", down: "#e11d48",
+  areaTop: "rgba(184,255,42,0.22)", areaBottom: "rgba(184,255,42,0.02)",
+  dot: "#ffffff", stub: "rgba(184,255,42,0.9)", lineColor: "#f0f0f0",
 };
 import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
@@ -53,6 +61,7 @@ import {
   type ClosedPosition,
 } from "@/lib/binary/history";
 import { CopyTradingPanel } from "@/components/binary/copy-trading-panel";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
@@ -680,6 +689,8 @@ export function BinaryClient(props: BinaryClientProps) {
 
 function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: BinaryClientProps) {
   const isLive = !!userId;
+  const bok = useIsBinarySurface();
+  const chartTheme = bok ? BOK_THEME : BINARY_THEME;
   const setNavBadge = useNavBadge()?.setBadge;
   // Forced USD display for Binary; stakes posted to the server stay KES.
   const { convert, toKes, currency } = useCurrency();
@@ -2305,7 +2316,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] md:pb-0">
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden text-white pb-[env(safe-area-inset-bottom)] md:pb-0 ${
+      bok ? "bok-trader bg-black" : "bg-[#151518]"
+    }`}>
       <CopyTradingPanel open={copyOpen} onClose={() => setCopyOpen(false)} />
       <div
         data-binary-grid="true"
@@ -2332,7 +2345,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         </aside>
 
         <main className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-y border-white/[0.08] md:order-none md:border-0">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
+          <section className={`bok-chart-section flex min-h-0 flex-1 flex-col overflow-hidden ${bok ? "bg-black" : "bg-[#18191f]"}`}>
             {/* Desktop header — same market chrome as mobile (icon + sheet) */}
             <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2.5 sm:flex">
               <button
@@ -2355,7 +2368,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     </span>
                     {streamStatus === "live" && (
                       <span className="hidden items-center gap-1 text-[11px] font-medium text-slate-500 lg:inline-flex">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                        <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${bok ? "bg-[var(--bok-lime)]" : "bg-emerald-400"}`} />
                         Live
                       </span>
                     )}
@@ -2372,7 +2385,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   <button
                     type="button"
                     onClick={() => setCopyOpen(true)}
-                    className="rounded-lg bg-violet-500/10 px-2 py-1 text-[10px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/15"
+                    className={bok
+                      ? "bok-chip-copy rounded-full px-2.5 py-1 text-[10px] font-black transition active:scale-[0.97]"
+                      : "rounded-lg bg-violet-500/10 px-2 py-1 text-[10px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/15"}
                   >
                     Copy
                   </button>
@@ -2382,8 +2397,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
             <div className="relative min-h-0 flex-1">
               {/* Mobile chrome sits in reserved top pad — no heavy fade over the plot. */}
-              <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-1 bg-[#151518] px-2 pb-1.5 pt-1.5 sm:hidden">
-                {/* Compact type chips; All + Copy pinned. Color echoes market accents. */}
+              <div className={`bok-mobile-chrome absolute inset-x-0 top-0 z-20 flex flex-col gap-1 px-2 pb-1.5 pt-1.5 sm:hidden ${
+                bok ? "bg-black" : "bg-[#151518]"
+              }`}>
+                {/* Compact type chips; All + Copy pinned. */}
                 <div className="flex items-center gap-1">
                   <div className="relative min-w-0 flex-1">
                     <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-4">
@@ -2392,20 +2409,26 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                           key={t.id}
                           type="button"
                           onClick={() => selectTradeType(t.id)}
-                          className={`flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-black transition active:scale-[0.97] ${
+                          className={`flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-black transition active:scale-[0.97] ${
                             tradeType === t.id
-                              ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/40"
-                              : "bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.05]"
+                              ? bok
+                                ? "bok-chip-active"
+                                : "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/40"
+                              : bok
+                                ? "bok-chip-idle"
+                                : "bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.05]"
                           }`}
                         >
                           {t.label}
-                          {t.hot && <span className="animate-flame text-[10px] leading-none">🔥</span>}
+                          {t.hot && !bok && <span className="animate-flame text-[10px] leading-none">🔥</span>}
                         </button>
                       ))}
                     </div>
                     <div
                       aria-hidden
-                      className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[#151518] via-[#151518]/90 to-transparent"
+                      className={`bok-chip-fade pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l ${
+                        bok ? "from-black via-black/90 to-transparent" : "from-[#151518] via-[#151518]/90 to-transparent"
+                      }`}
                     />
                   </div>
                   <button
@@ -2413,7 +2436,11 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     onClick={() => setPickerOpen(true)}
                     title="View all trade types"
                     aria-label="View all trade types"
-                    className="flex shrink-0 items-center gap-0.5 rounded-full bg-sky-500/12 px-2 py-1 text-[11px] font-black text-sky-300 ring-1 ring-sky-400/30 transition active:scale-[0.97]"
+                    className={`flex shrink-0 items-center gap-0.5 rounded-full px-2.5 py-1.5 text-[11px] font-black transition active:scale-[0.97] ${
+                      bok
+                        ? "bok-chip-all"
+                        : "bg-sky-500/12 text-sky-300 ring-1 ring-sky-400/30"
+                    }`}
                   >
                     <Icon name="apps" className="text-[13px]" />
                     All
@@ -2424,7 +2451,11 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                       onClick={() => setCopyOpen(true)}
                       title="Copy trading"
                       aria-label="Copy trading"
-                      className="flex shrink-0 items-center gap-0.5 rounded-full bg-violet-500/12 px-2 py-1 text-[11px] font-black text-violet-300 ring-1 ring-violet-400/30 transition active:scale-[0.97]"
+                      className={`flex shrink-0 items-center gap-0.5 rounded-full px-2.5 py-1.5 text-[11px] font-black transition active:scale-[0.97] ${
+                        bok
+                          ? "bok-chip-copy"
+                          : "bg-violet-500/12 text-violet-300 ring-1 ring-violet-400/30"
+                      }`}
                     >
                       <Icon name="groups" className="text-[13px]" />
                       Copy
@@ -2457,15 +2488,21 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     onClick={() => router.replace(`${pathname}?panel=positions`, { scroll: false })}
                     title="Positions"
                     aria-label="Open positions"
-                    className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-full ring-1 transition active:scale-[0.96] ${
+                    className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition active:scale-[0.96] ${
                       panel === "positions"
-                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/35"
-                        : "bg-white/[0.04] text-slate-300 ring-white/[0.08] hover:text-white"
+                        ? bok
+                          ? "bok-pos-btn-on"
+                          : "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/35"
+                        : bok
+                          ? "bok-pos-btn-off"
+                          : "bg-white/[0.04] text-slate-300 ring-1 ring-white/[0.08] hover:text-white"
                     }`}
                   >
                     <Icon name="swap_vert" className="text-[20px]" />
                     {openPositions.length > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 grid min-w-4 h-4 place-items-center rounded-full bg-sky-500 px-0.5 text-[9px] font-black leading-none text-white">
+                      <span className={`absolute -right-0.5 -top-0.5 grid min-w-4 h-4 place-items-center rounded-full px-0.5 text-[9px] font-black leading-none ${
+                        bok ? "bok-pos-badge" : "bg-sky-500 text-white"
+                      }`}>
                         {openPositions.length > 99 ? "99+" : openPositions.length}
                       </span>
                     )}
@@ -2474,16 +2511,16 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
               </div>
 
               {/* Chart below mobile header so the line never sits under a fade. */}
-              <div className="absolute inset-0 flex flex-col pt-[84px] sm:pt-0">
+              <div className="absolute inset-0 flex flex-col pt-[88px] sm:pt-0">
                 <div className="relative min-h-0 flex-1">
                   <LiveTickChart
                     points={livePoints}
-                    theme={BINARY_THEME}
+                    theme={chartTheme}
                     lines={chartLines}
                     markers={chartMarkers}
                     formatValue={formatQuote}
                     bucketSeconds={5}
-                    storageKey="nz.binary.chartType"
+                    storageKey={bok ? "bok.binary.chartType" : "nz.binary.chartType"}
                   />
                 </div>
               </div>
@@ -2492,7 +2529,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
                 to set it as the Matches/Differs/Over/Under target. Digit types only. */}
             {isDigitType && (
-              <section className="grid h-[48px] shrink-0 grid-cols-10 bg-[#151518] sm:mb-2.5 sm:h-[78px]">
+              <section className={`bok-digit-strip grid h-[48px] shrink-0 grid-cols-10 sm:mb-2.5 sm:h-[78px] ${
+                bok ? "bg-black" : "bg-[#151518]"
+              }`}>
                 {digitStats.map((stat) => (
                   <button
                     key={stat.digit}
@@ -2502,7 +2541,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   >
                     <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
                     {latest.digit === stat.digit && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none text-amber-400">▲</span>
+                      <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none ${
+                        bok ? "text-[var(--bok-lime)]" : "text-amber-400"
+                      }`}>▲</span>
                     )}
                   </button>
                 ))}
@@ -2511,8 +2552,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden border-white/[0.08] max-md:max-h-[min(48svh,420px)] max-md:rounded-t-2xl max-md:border-x-0 max-md:border-b-0 max-md:border-t md:order-none md:max-h-none md:border-y-0 md:border-r-0 md:border-l">
-          <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#18191f]">
+        <aside className={`bok-trade-dock order-2 flex min-h-0 shrink-0 flex-col overflow-hidden border-white/[0.08] max-md:max-h-[min(48svh,420px)] max-md:rounded-t-2xl max-md:border-x-0 max-md:border-b-0 max-md:border-t md:order-none md:max-h-none md:border-y-0 md:border-r-0 md:border-l`}>
+          <section className={`bok-trade-section relative flex h-full min-h-0 flex-col overflow-hidden ${bok ? "bg-[#0e0e0e]" : "bg-[#18191f]"}`}>
             {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button
               type="button"
@@ -2521,7 +2562,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             >
               <Icon name="chevron_left" className="text-[18px] text-slate-400" />
               <span className="flex items-center gap-0.5">
-                <Icon name={tradeTypeById(tradeType).upIcon} className="text-[16px] text-emerald-400" />
+                <Icon name={tradeTypeById(tradeType).upIcon} className={`text-[16px] ${bok ? "text-[var(--bok-lime)]" : "text-emerald-400"}`} />
                 <Icon name={tradeTypeById(tradeType).downIcon} className="text-[16px] text-red-400" />
               </span>
               <span className="min-w-0">
@@ -2540,16 +2581,26 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   key={label}
                   type="button"
                   onClick={() => setAutoMode(val)}
-                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-black transition ${autoMode === val ? "bg-[#087cff] text-white" : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]"}`}
+                  className={`flex-1 rounded-full py-1.5 text-[11px] font-black transition ${
+                    autoMode === val
+                      ? bok
+                        ? "bok-mode-on"
+                        : "bg-[#087cff] text-white"
+                      : bok
+                        ? "bok-mode-off"
+                        : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]"
+                  }`}
                 >
-                  {label === "Auto" ? "⚡ Auto" : label}
+                  {label === "Auto" ? (bok ? "Auto" : "⚡ Auto") : label}
                 </button>
               ))}
               {copyEnabled && (
                 <button
                   type="button"
                   onClick={() => setCopyOpen(true)}
-                  className="rounded-lg bg-violet-500/12 px-2.5 py-1.5 text-[11px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/18"
+                  className={bok
+                    ? "bok-chip-copy rounded-full px-2.5 py-1.5 text-[11px] font-black transition active:scale-[0.97]"
+                    : "rounded-lg bg-violet-500/12 px-2.5 py-1.5 text-[11px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/18"}
                   title="Copy trading"
                 >
                   Copy

@@ -6,6 +6,7 @@ import { COUNTRIES, type Country } from "@/lib/countries";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 
 type PhonePromptModalProps = {
   onComplete: (phone: string) => void;
@@ -16,6 +17,7 @@ type PhonePromptModalProps = {
 
 export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePromptModalProps) {
   // Social sign-ups see a "verified" confirmation first, then the phone form.
+  const bok = useIsBinarySurface();
   const [step, setStep] = useState<"verified" | "phone">(verifiedIntro ? "verified" : "phone");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState<Country>(() => {
@@ -23,6 +25,9 @@ export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePro
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const primaryCta = bok
+    ? "bok-dialog-cta mt-6 flex w-full items-center justify-center gap-2 py-3.5 text-sm disabled:opacity-60"
+    : "mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1a85ff] active:scale-[.98] disabled:opacity-60";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -117,7 +122,7 @@ export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePro
           <button
             type="button"
             onClick={() => setStep("phone")}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1a85ff] active:scale-[.98]"
+            className={primaryCta}
           >
             Continue
             <Icon name="arrow_forward" className="text-[18px]" />
@@ -131,7 +136,9 @@ export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePro
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
       <div className="w-full max-w-[420px] rounded-3xl border border-white/[0.08] bg-[#111316] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/10 text-[#087cff]">
+          <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full ${
+            bok ? "bok-dialog-accent" : "bg-[#087cff]/10 text-[#087cff]"
+          }`}>
             <Icon name="verified_user" fill className="text-[32px]" />
           </div>
           <h2 className="text-2xl font-black text-white">Link Mobile Number</h2>
@@ -141,7 +148,9 @@ export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePro
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div className="flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+          <div className={`flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] ${
+            bok ? "focus-within:ring-[rgba(184,255,42,0.45)]" : "focus-within:ring-[#087cff]/50"
+          }`}>
             <CountryPicker value={country} onChange={setCountry} />
             <input
               type="tel"
@@ -163,11 +172,11 @@ export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePro
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1a85ff] active:scale-[.98] disabled:opacity-60"
+            className={primaryCta}
           >
             {loading ? (
               <>
-                <svg className="h-4 w-4 shrink-0 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <svg className={`h-4 w-4 shrink-0 animate-spin ${bok ? "text-[var(--bok-lime-ink)]" : "text-white"}`} viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
