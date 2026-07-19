@@ -26,7 +26,15 @@ import { Icon } from "@/components/icon";
  */
 
 export type LivePoint = { time: UTCTimestamp; value: number };
-export type ChartLine = { id: string; price: number; color: string; title: string; dashed?: boolean };
+export type ChartLine = {
+  id: string;
+  price: number;
+  color: string;
+  title: string;
+  dashed?: boolean;
+  /** Brief emphasis when the user focuses / edits the matching ticket field. */
+  pulse?: boolean;
+};
 export type ChartMarker = { id: string; time: UTCTimestamp; color: string; text: string; above?: boolean };
 /** @deprecated Area line is the only chart type; kept for call-site compat. */
 export type LiveChartType = "area";
@@ -279,9 +287,9 @@ export function LiveTickChart({
     for (const l of want) {
       const opts = {
         price: l.price,
-        color: l.color,
-        lineWidth: 1 as const,
-        lineStyle: l.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        color: l.pulse ? "#fbbf24" : l.color,
+        lineWidth: (l.pulse ? 2 : 1) as 1 | 2,
+        lineStyle: l.dashed && !l.pulse ? LineStyle.Dashed : LineStyle.Solid,
         axisLabelVisible: true,
         title: l.title,
       };

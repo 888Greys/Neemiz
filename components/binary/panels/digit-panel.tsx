@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { StakeAmountField } from "@/components/binary/stake-amount-field";
 import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { useCurrency } from "@/lib/currency-context";
+import { digitWinCondition, formatPayoutWithReturn } from "@/lib/binary/display";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -77,13 +78,15 @@ export function DigitPanel({
   const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
   const reasonFor = rejectReasonFor ?? (() => null);
   const matchesReason = reasonFor("Matches");
-  const payoutLabel = (side: ContractSide) => {
+  const payoutLabel = (side: ContractSide, opts?: { prefix?: "Payout" }) => {
     const reason = reasonFor(side);
     if (reason) return reason;
     const payout = payoutFor(side);
     if (!(payout > 0) && side === "Matches") return "Pricing…";
-    return format(payout);
+    return formatPayoutWithReturn(format, payout, stake, opts);
   };
+  const desktopWinLine = digitWinCondition(family, null, targetDigit);
+  const mobileWinLine = digitWinCondition(family, selectedSide, targetDigit);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -107,6 +110,7 @@ export function DigitPanel({
         rejectReasonFor={reasonFor}
         lessAvailableDigits={lessAvailableDigits}
         format={format}
+        winLine={mobileWinLine}
         onTrade={onTrade}
         placing={placing}
         openPositions={openPositions}
@@ -115,6 +119,9 @@ export function DigitPanel({
       {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
       <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {desktopWinLine}
+        </p>
         <div className={compactStakeDuration ? "grid grid-cols-2 gap-1.5 sm:block sm:space-y-1.5" : "flex flex-col gap-1.5"}>
           {/* Duration */}
           <div className={`${CARD} ${compactStakeDuration ? "sm:flex" : "order-2 flex"} items-center gap-2 sm:block`}>
@@ -232,33 +239,36 @@ export function DigitPanel({
       {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
 
       {/* Action buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
-        {sides.map((side) => {
-          const isRed = RED_SIDES.has(side);
-          const reason = reasonFor(side);
-          const disabled = !!reason || placing;
-          return (
-            <button
-              key={side}
-              type="button"
-              onClick={() => onTrade(side)}
-              disabled={disabled}
-              title={reason ?? undefined}
-              aria-busy={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
-                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
-              }`}
-            >
-              <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
-                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
-                {actionLabel(side)}
-              </span>
-              <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
-                {payoutLabel(side)}
-              </span>
-            </button>
-          );
-        })}
+      <div className="shrink-0 space-y-1 p-2 pt-1.5 sm:pt-2">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          {sides.map((side) => {
+            const isRed = RED_SIDES.has(side);
+            const reason = reasonFor(side);
+            const disabled = !!reason || placing;
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onTrade(side)}
+                disabled={disabled}
+                title={reason ?? undefined}
+                aria-busy={placing}
+                className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+                  isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
+                }`}
+              >
+                <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+                  <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
+                  {actionLabel(side)}
+                </span>
+                <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
+                  {payoutLabel(side)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
       </div>
     </div>
@@ -274,7 +284,8 @@ function MobileDerivDigits({
   stake, setStake, duration, setDuration,
   targetDigit, setTargetDigit, lastDigit,
   stakePresets, minStake, needsTarget, targetVerb, targetDigits,
-  payoutLabel, rejectReasonFor, lessAvailableDigits, format, onTrade, placing, openPositions,
+  payoutLabel, rejectReasonFor, lessAvailableDigits, format, winLine,
+  onTrade, placing, openPositions,
 }: {
   currency: string;
   sides: ContractSide[];
@@ -289,10 +300,11 @@ function MobileDerivDigits({
   needsTarget: boolean;
   targetVerb: string;
   targetDigits: number[];
-  payoutLabel: (side: ContractSide) => string;
+  payoutLabel: (side: ContractSide, opts?: { prefix?: "Payout" }) => string;
   rejectReasonFor: (side: ContractSide) => string | null;
   lessAvailableDigits?: Set<number>;
   format: (v: number) => string;
+  winLine: string;
   onTrade: (side: ContractSide) => void;
   placing: boolean;
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
@@ -333,6 +345,9 @@ function MobileDerivDigits({
       </button>
 
       <div className="space-y-2.5 px-3 pb-1">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {winLine}
+        </p>
         {/* Side toggle — text only (no icon), slim pills (Deriv-style) */}
         <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
           {sides.map((side) => {
@@ -441,7 +456,7 @@ function MobileDerivDigits({
       {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
 
       {/* One slim, pill-shaped Buy button (Deriv-style), flush above safe area */}
-      <div className="px-3 pb-2 pt-1">
+      <div className="space-y-1 px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
@@ -456,9 +471,10 @@ function MobileDerivDigits({
             {selectedReason ? actionLabel(selectedSide) : `Buy ${actionLabel(selectedSide)}`}
           </span>
           <span className="font-mono text-[11px] leading-tight text-white/85">
-            {selectedReason ? selectedReason : `Payout ${payoutLabel(selectedSide)}`}
+            {selectedReason ? selectedReason : payoutLabel(selectedSide, { prefix: "Payout" })}
           </span>
         </button>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
     </div>
   );

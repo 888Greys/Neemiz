@@ -135,11 +135,16 @@ export function TradeTypePicker({
                         t.id === value ? "bg-white/[0.07] ring-1 ring-inset ring-sky-500/40" : "hover:bg-white/[0.05]"
                       }`}
                     >
-                      <span className="flex items-center gap-0.5">
+                      <span className="flex shrink-0 items-center gap-0.5">
                         <Icon name={t.upIcon} className="text-[16px] text-emerald-400" />
                         <Icon name={t.downIcon} className="text-[16px] text-red-400" />
                       </span>
-                      <span className="min-w-0 truncate text-[12px] font-bold text-white sm:text-[13px]">{t.label}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[12px] font-bold text-white sm:text-[13px]">{t.label}</span>
+                        <span className="mt-0.5 block truncate text-[10px] font-medium leading-snug text-slate-500 sm:text-[11px]">
+                          {t.howItPays}
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>

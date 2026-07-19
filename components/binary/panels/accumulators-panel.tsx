@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { StakeAmountField } from "@/components/binary/stake-amount-field";
 import { GROWTH_RATES, maxTicksFor, payoutAtTick, barrierFracFor } from "@/lib/accumulator";
+import { accumulatorWinCondition } from "@/lib/binary/display";
 import { ValuePickerSheet } from "./digit-panel";
 import { useCurrency } from "@/lib/currency-context";
 
@@ -73,6 +74,9 @@ export function AccumulatorsPanel({
       {/* ── Desktop (sm+): existing config layout, untouched ── */}
       <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {accumulatorWinCondition()}
+        </p>
         {/* Growth rate */}
         <div className={CARD}>
           <div className="mb-1.5 flex items-center justify-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">
@@ -149,7 +153,7 @@ export function AccumulatorsPanel({
       </div>
 
       {/* Buy */}
-      <div className="shrink-0 p-2 pt-1.5 sm:pt-2">
+      <div className="shrink-0 space-y-1 p-2 pt-1.5 sm:pt-2">
         <button
           type="button"
           onClick={onBuy}
@@ -160,6 +164,7 @@ export function AccumulatorsPanel({
           {placing ? <LoadingDots /> : "Buy"}
           <Icon name="arrow_forward" className="ml-auto text-[16px] sm:text-[18px]" />
         </button>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
       </div>
     </div>
@@ -230,6 +235,9 @@ function MobileAccumulators({
       </button>
 
       <div className="space-y-2.5 px-3 pb-1">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {accumulatorWinCondition()}
+        </p>
         {expanded ? (
           <div className="space-y-2.5">
             {cards.map((c) => (
@@ -260,7 +268,7 @@ function MobileAccumulators({
         </div>
       </div>
 
-      <div className="px-3 pb-2 pt-1">
+      <div className="space-y-1 px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={onBuy}
@@ -269,6 +277,7 @@ function MobileAccumulators({
         >
           {placing ? <LoadingDots /> : "Buy"}
         </button>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
 
       {sheet === "growth" && (

@@ -23,10 +23,15 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
-import { LiveTickChart, type LiveChartTheme } from "@/components/charts/live-tick-chart";
+import { LiveTickChart, type LiveChartTheme, type ChartLine as LiveChartLine } from "@/components/charts/live-tick-chart";
 import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
 import { celebrateWin } from "@/components/aviator/win-celebration";
+import {
+  digitInterimStatus,
+  directionalInterimStatus,
+  type InterimStatus,
+} from "@/lib/binary/display";
 
 // Blue/white theme for the shared live chart engine.
 const BINARY_THEME: LiveChartTheme = {
@@ -365,7 +370,7 @@ function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
 
 // A horizontal overlay line on the chart (barrier / strike / stop-out / knockout
 // / entry). Diffed by `id` so lines that follow the spot update in place.
-type ChartLine = { id: string; price: number; color: string; title: string; dashed?: boolean };
+type ChartLine = LiveChartLine;
 // An entry/exit marker pinned to a tick time.
 type ChartMarker = { id: string; time: UTCTimestamp; color: string; text: string; above?: boolean };
 
@@ -782,6 +787,19 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   // Directional contracts (Rise/Fall, Higher/Lower).
   const [barrierOffset, setBarrierOffset] = useState(0);
+  // Brief chart-line pulse when the user focuses / edits barrier or strike offset.
+  const [barrierPulseUntil, setBarrierPulseUntil] = useState(0);
+  const pulseBarrierLine = useCallback((focused?: boolean) => {
+    if (focused === false) return;
+    setBarrierPulseUntil(Date.now() + 1100);
+  }, []);
+  useEffect(() => {
+    if (!barrierPulseUntil) return;
+    const ms = Math.max(0, barrierPulseUntil - Date.now());
+    const id = setTimeout(() => setBarrierPulseUntil(0), ms || 50);
+    return () => clearTimeout(id);
+  }, [barrierPulseUntil]);
+  const barrierLinePulsing = barrierPulseUntil > Date.now();
   const [dirPlacing, setDirPlacing] = useState(false);
   const [dirTrades, setDirTrades] = useState<DirTrade[]>([]);
   const dirTradesRef = useRef<DirTrade[]>([]);
@@ -1227,9 +1245,23 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     }
     // Live preview of the barrier/strike/stop-out for the type being configured.
     if (isDirectionalType && dirKind && dirKind !== "RISE_FALL") {
-      out.push({ id: "cfg-barrier", price: latest.quote + barrierOffset, color: BARRIER_COLOR, title: dirKind === "VANILLA" ? "Strike" : "Barrier", dashed: true });
+      out.push({
+        id: "cfg-barrier",
+        price: latest.quote + barrierOffset,
+        color: BARRIER_COLOR,
+        title: dirKind === "VANILLA" ? "Strike" : "Barrier",
+        dashed: true,
+        pulse: barrierLinePulsing,
+      });
     } else if (isLeveragedType && !levPos) {
-      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Barrier" : "Stop out", dashed: true });
+      out.push({
+        id: "cfg-danger",
+        price: levConfigDanger,
+        color: DANGER_COLOR,
+        title: levKind === "TURBO" ? "Barrier" : "Stop out",
+        dashed: true,
+        pulse: barrierLinePulsing,
+      });
     }
     return out;
   })();
@@ -1252,15 +1284,31 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   // live cash-out (value moves each tick). Recomputed on every tick so live
   // values stay current.
   const openPositions: OpenPositionView[] = [
-    ...openTrades.map((t) => ({
-      id: t.id, title: t.side, subtitle: `${t.market} · digit ${t.entryDigit}`,
-      stake: t.stake, value: t.payout, isReal: t.isReal ?? false, settlesAt: t.settlesAt,
-    })),
-    ...dirTrades.filter((t) => t.status === "open").map((t) => ({
-      id: t.id, title: t.side === "NO_TOUCH" ? "NO TOUCH" : t.side,
-      subtitle: `${t.market} · ${t.durationTicks} ticks`,
-      stake: t.stake, value: t.kind === "VANILLA" ? t.stake : t.payout, isReal: t.isReal, settlesAt: t.settlesAt,
-    })),
+    ...openTrades.map((t) => {
+      const interim = digitInterimStatus({
+        side: t.side, targetDigit: t.targetDigit, liveDigit: latest.digit, settlesAt: t.settlesAt,
+      });
+      return {
+        id: t.id, title: t.side, subtitle: `${t.market} · digit ${t.entryDigit}`,
+        stake: t.stake, value: t.payout, isReal: t.isReal ?? false, settlesAt: t.settlesAt,
+        interim,
+      };
+    }),
+    ...dirTrades.filter((t) => t.status === "open").map((t) => {
+      const pathSpots = t.kind === "TOUCH_NO_TOUCH"
+        ? ticks.filter((tk) => (tk.time as number) > t.entryEpoch).map((tk) => tk.quote)
+        : undefined;
+      const interim = directionalInterimStatus({
+        kind: t.kind, side: t.side, entrySpot: t.entrySpot, barrier: t.barrier,
+        liveSpot: latest.quote, settlesAt: t.settlesAt, pathSpots,
+      });
+      return {
+        id: t.id, title: t.side === "NO_TOUCH" ? "NO TOUCH" : t.side,
+        subtitle: `${t.market} · ${t.durationTicks} ticks`,
+        stake: t.stake, value: t.kind === "VANILLA" ? t.stake : t.payout, isReal: t.isReal, settlesAt: t.settlesAt,
+        interim,
+      };
+    }),
     ...(accaPos ? [{
       id: accaPos.id, title: `Accumulator ${accaPos.growthRate}%`,
       subtitle: `${accaPos.market} · ${accaPos.ticksSurvived} ticks`,
@@ -2279,7 +2327,12 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 <Icon name={tradeTypeById(tradeType).upIcon} className="text-[16px] text-emerald-400" />
                 <Icon name={tradeTypeById(tradeType).downIcon} className="text-[16px] text-red-400" />
               </span>
-              <span className="text-[13px] font-black text-white">{tradeTypeById(tradeType).label}</span>
+              <span className="min-w-0">
+                <span className="block text-[13px] font-black text-white">{tradeTypeById(tradeType).label}</span>
+                <span className="mt-0.5 block truncate text-[10px] font-medium leading-snug text-slate-500">
+                  {tradeTypeById(tradeType).howItPays}
+                </span>
+              </span>
             </button>
 
             {/* Manual vs Auto toggle — desktop only; mobile keeps the Deriv-style
@@ -2348,7 +2401,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
                 secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
-                strikeOffset={barrierOffset} setStrikeOffset={setBarrierOffset}
+                strikeOffset={barrierOffset}
+                setStrikeOffset={(v) => { setBarrierOffset(v); pulseBarrierLine(true); }}
                 latestSpot={latest.quote}
                 stakePresets={stakePresets}
                 minStake={minStake}
@@ -2359,6 +2413,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 onTrade={placeDirectional}
                 placing={dirPlacing}
                 openPositions={dirOpenPositions}
+                onStrikeFocus={pulseBarrierLine}
               />
             ) : isDirectionalType && dirKind ? (
               <DirectionalPanel
@@ -2369,7 +2424,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 duration={duration} setDuration={setDuration}
                 durationUnit={durationUnit} setDurationUnit={setDurationUnit}
                 secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
-                barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+                barrierOffset={barrierOffset}
+                setBarrierOffset={(v) => { setBarrierOffset(v); pulseBarrierLine(true); }}
                 maxBarrierOffset={maxBarrierOffset}
                 minBarrierOffset={minBarrierOffset}
                 minDuration={minDurationTicks}
@@ -2383,6 +2439,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 onTrade={placeDirectional}
                 placing={dirPlacing}
                 openPositions={dirOpenPositions}
+                onBarrierFocus={pulseBarrierLine}
               />
             ) : isLeveragedType && levKind ? (
               <LeveragedPanel
@@ -2390,7 +2447,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                 kind={levKind}
                 stake={stake} setStake={setStake}
                 multiplier={multiplier} setMultiplier={setMultiplier}
-                barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+                barrierOffset={barrierOffset}
+                setBarrierOffset={(v) => { setBarrierOffset(v); pulseBarrierLine(true); }}
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
                 takeProfit={takeProfit} setTakeProfit={setTakeProfit}
                 stopLossOn={stopLossOn} setStopLossOn={setStopLossOn}
@@ -2776,6 +2834,8 @@ type OpenPositionView = {
   value: number;            // current/potential payout shown
   isReal: boolean;
   settlesAt?: number;       // fixed-duration types show a countdown; cash-out types show "LIVE"
+  /** Best-effort live vs rule — digit/directional only; Acca/Lev stay LIVE. */
+  interim?: InterimStatus;
 };
 
 interface ActivityPanelProps {
@@ -3079,14 +3139,34 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
   const secondsLeft = pos.settlesAt != null ? Math.max(0, Math.ceil((pos.settlesAt - now) / 1000)) : 0;
   // Countdown hit 0 but the row is still in Open — waiting on settle / server confirm.
   const settling = hasCountdown && secondsLeft === 0;
+  const interim: InterimStatus | null = settling ? "settling" : (pos.interim ?? null);
   const profit = pos.value - pos.stake;
+  const edgeClass =
+    interim === "winning" ? "border-l-emerald-500/70"
+    : interim === "losing" ? "border-l-red-500/60"
+    : interim === "settling" ? "border-l-amber-400/70"
+    : "border-l-transparent";
+  const statusLabel =
+    interim === "settling" ? "Settling"
+    : interim === "winning" ? "Winning"
+    : interim === "losing" ? "Losing"
+    : null;
 
   return (
-    <div className={`border bg-black/25 p-3 transition ${settling ? "border-amber-400/35" : "border-white/[0.07]"}`}>
+    <div className={`border border-l-2 bg-black/25 p-3 transition ${edgeClass} ${settling ? "border-amber-400/35" : "border-white/[0.07]"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-black text-white">{pos.title}</div>
           <div className="truncate text-[11px] font-bold text-slate-500">{pos.subtitle}</div>
+          {statusLabel && (
+            <div className={`mt-1 text-[10px] font-bold tracking-wide ${
+              interim === "winning" ? "text-emerald-400/90"
+              : interim === "losing" ? "text-red-400/80"
+              : "text-amber-400/80 animate-settle-pulse"
+            }`}>
+              {statusLabel}
+            </div>
+          )}
         </div>
         <span
           className={`shrink-0 rounded px-2 py-1 text-[10px] font-black ${
@@ -3105,11 +3185,6 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
         <span className="text-slate-500">Stake {money(pos.stake)}</span>
         <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{money(pos.value)}</span>
       </div>
-      {settling && (
-        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-400/80 animate-settle-pulse">
-          Settling…
-        </p>
-      )}
     </div>
   );
 }

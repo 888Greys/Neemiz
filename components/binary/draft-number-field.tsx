@@ -32,6 +32,8 @@ type Props = {
   /** Optional trailing slot (e.g. "ticks"). */
   trailing?: ReactNode;
   disabled?: boolean;
+  /** Fired when the input gains / loses focus (e.g. chart barrier pulse). */
+  onFocusChange?: (focused: boolean) => void;
 };
 
 /**
@@ -54,6 +56,7 @@ export function DraftNumberField({
   inputClassName = "",
   trailing,
   disabled = false,
+  onFocusChange,
 }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
@@ -152,10 +155,12 @@ export function DraftNumberField({
         onFocus={() => {
           setFocused(true);
           setDraft("");
+          onFocusChange?.(true);
         }}
         onBlur={() => {
           setFocused(false);
           commit(draft ?? "");
+          onFocusChange?.(false);
         }}
         onChange={(e) => {
           const v = e.target.value;

@@ -8,6 +8,7 @@ import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { BarrierSheet } from "./directional-panel";
 import { useCurrency } from "@/lib/currency-context";
 import type { DirectionalSide } from "@/lib/directional";
+import { directionalWinCondition, formatPayoutWithReturn } from "@/lib/binary/display";
 
 type DirSide = DirectionalSide;
 
@@ -30,6 +31,7 @@ export function VanillaPanel({
   payoutPerPointFor, maxPayout,
   format, formatSpot,
   onTrade, placing, openPositions,
+  onStrikeFocus,
 }: {
   currency: string;
   sides: DirSide[];
@@ -47,10 +49,13 @@ export function VanillaPanel({
   onTrade: (side: DirSide) => void;
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
+  onStrikeFocus?: (focused: boolean) => void;
 }) {
   const { convert, toKes, currency: cc } = useCurrency();
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
   const strike = latestSpot + strikeOffset;
+  const maxLabel = formatPayoutWithReturn(format, maxPayout, stake, { prefix: "max" });
+  const winLine = directionalWinCondition("VANILLA", null);
 
   // Mobile uses Deriv's single-CTA model: a Call/Put toggle + one Buy button.
   const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
@@ -71,14 +76,20 @@ export function VanillaPanel({
         latestSpot={latestSpot}
         offsetStep={offsetStep}
         stakePresets={stakePresets} minStake={minStake}
-        payoutPerPointFor={payoutPerPointFor} maxPayout={maxPayout}
+        payoutPerPointFor={payoutPerPointFor}
+        maxLabel={maxLabel}
         format={format} formatSpot={formatSpot}
+        winLine={winLine}
+        onStrikeFocus={onStrikeFocus}
         onTrade={onTrade} placing={placing} openPositions={openPositions}
       />
 
       {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
       <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {winLine}
+        </p>
         {/* Stake */}
         <div className={CARD}>
           <div className="mb-1 text-center text-[10px] font-bold text-slate-300 sm:mb-2.5 sm:text-[13px] sm:text-slate-200">Stake</div>
@@ -122,7 +133,10 @@ export function VanillaPanel({
             <div className="mb-1 text-center text-[10px] font-bold text-slate-400 sm:mb-2.5 sm:text-[13px] sm:text-slate-200">Strike offset</div>
             <DraftNumberField
               value={strikeOffset}
-              onCommit={setStrikeOffset}
+              onCommit={(v) => {
+                setStrikeOffset(v);
+                onStrikeFocus?.(true);
+              }}
               signed
               step={offsetStep}
               emptyValue={0}
@@ -130,8 +144,9 @@ export function VanillaPanel({
               decreaseLabel="Decrease strike offset"
               increaseLabel="Increase strike offset"
               inputClassName="text-[13px] sm:text-[15px]"
+              onFocusChange={onStrikeFocus}
             />
-            <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
+            <div className="mt-2 flex items-center justify-between text-[12px]">
               <span className="font-bold text-slate-400">Strike</span>
               <span className="font-mono font-black text-amber-300">{formatSpot(strike)}</span>
             </div>
@@ -142,7 +157,7 @@ export function VanillaPanel({
         <div className={`${CARD} grid grid-cols-2 gap-1 text-[10px] sm:block sm:space-y-2 sm:text-[13px]`}>
           <div className="col-span-2 min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
             <span className="block truncate font-bold text-slate-300 sm:inline">Max payout</span>
-            <span className="block truncate font-black text-emerald-300 sm:text-[15px] sm:inline">{format(maxPayout)}</span>
+            <span className="block truncate font-black text-emerald-300 sm:text-[15px] sm:inline">{maxLabel}</span>
           </div>
           <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
             <span className="block truncate font-bold text-slate-400 sm:inline">Strike</span>
@@ -178,7 +193,7 @@ export function VanillaPanel({
                   {side}
                 </span>
                 <span className="font-mono text-[10px] leading-none text-white sm:mt-0.5 sm:text-[13px]">
-                  max {format(maxPayout)}
+                  {maxLabel}
                 </span>
                 <span className="hidden font-mono text-[10px] font-bold leading-none text-white/55 sm:mt-0.5 sm:block">
                   {format(payoutPerPointFor(side))}/pt
@@ -188,7 +203,7 @@ export function VanillaPanel({
           })}
         </div>
         <p className="px-0.5 text-center text-[10px] font-medium leading-snug text-slate-500 sm:text-[11px]">
-          Payout scales with points ITM, up to max
+          Risk: {format(stake)}
         </p>
       </div>
       </div>
@@ -203,8 +218,8 @@ function MobileVanilla({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration, secPerTick,
   strikeOffset, setStrikeOffset, strike, latestSpot, offsetStep,
-  stakePresets, minStake, payoutPerPointFor, maxPayout,
-  format, formatSpot, onTrade, placing, openPositions,
+  stakePresets, minStake, payoutPerPointFor, maxLabel,
+  format, formatSpot, winLine, onStrikeFocus, onTrade, placing, openPositions,
 }: {
   currency: string;
   sides: DirSide[];
@@ -220,9 +235,11 @@ function MobileVanilla({
   stakePresets: number[];
   minStake: number;
   payoutPerPointFor: (side: DirSide) => number;
-  maxPayout: number;
+  maxLabel: string;
   format: (v: number) => string;
   formatSpot: (v: number) => string;
+  winLine: string;
+  onStrikeFocus?: (focused: boolean) => void;
   onTrade: (side: DirSide) => void;
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
@@ -236,14 +253,17 @@ function MobileVanilla({
   const [expanded, setExpanded] = useState(false);
   const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
-  // Deriv shows the strike as a signed offset from spot (e.g. "+0.00", "-1.28").
+  // Offset primary; absolute strike as secondary (spot + offset).
   const strikeLabel = `${strikeOffset >= 0 ? "+" : ""}${strikeOffset.toFixed(2)}`;
   // Call/Put is offered in time units only (Deriv has no Ticks tab here).
   const cards = [
-    { key: "duration", label: "Duration", value: `${duration * secPerTick} sec`, accent: "text-white", onClick: () => setPicker("duration") },
-    { key: "strike", label: "Strike", value: strikeLabel, accent: "text-amber-300", onClick: () => setPicker("strike") },
-    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
-  ] as const;
+    { key: "duration", label: "Duration", value: `${duration * secPerTick} sec`, sub: null as string | null, accent: "text-white", onClick: () => setPicker("duration") },
+    {
+      key: "strike", label: "Strike", value: strikeLabel, sub: formatSpot(strike), accent: "text-amber-300",
+      onClick: () => { onStrikeFocus?.(true); setPicker("strike"); },
+    },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, sub: null, accent: "text-white", onClick: () => setPicker("stake") },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col sm:hidden">
@@ -260,6 +280,9 @@ function MobileVanilla({
       </button>
 
       <div className="space-y-2.5 px-3 pb-1">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {winLine}
+        </p>
         {/* Call/Put toggle — slim pills (Deriv-style) */}
         <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
           {sides.map((side) => {
@@ -287,6 +310,7 @@ function MobileVanilla({
               <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
                 <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+                {c.sub && <span className="mt-0.5 font-mono text-[11px] font-bold text-slate-500">{c.sub}</span>}
               </button>
             ))}
           </div>
@@ -296,6 +320,7 @@ function MobileVanilla({
               <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
                 <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+                {c.sub && <span className="mt-0.5 truncate font-mono text-[10px] font-bold text-slate-500">{c.sub}</span>}
               </button>
             ))}
           </div>
@@ -304,7 +329,7 @@ function MobileVanilla({
         <div className="space-y-1 px-1">
           <div className="flex items-center justify-between text-[12px]">
             <span className="font-bold text-slate-300">Max payout</span>
-            <span className="font-black text-emerald-300">{format(maxPayout)}</span>
+            <span className="font-black text-emerald-300">{maxLabel}</span>
           </div>
           <div className="flex items-center justify-between text-[11px]">
             <span className="font-bold text-slate-500">{selectedSide}/pt</span>
@@ -329,8 +354,10 @@ function MobileVanilla({
       )}
       {picker === "strike" && (
         <BarrierSheet
-          title="Strike" latestSpot={latestSpot} offset={strikeOffset} setOffset={setStrikeOffset}
-          offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
+          title="Strike" latestSpot={latestSpot} offset={strikeOffset}
+          setOffset={(v) => { setStrikeOffset(v); onStrikeFocus?.(true); }}
+          offsetStep={offsetStep} formatSpot={formatSpot}
+          onClose={() => { onStrikeFocus?.(false); setPicker(null); }}
         />
       )}
 
@@ -347,13 +374,13 @@ function MobileVanilla({
           }`}
         >
           <span className="text-[15px] leading-tight">{`Buy ${selectedSide}`}</span>
-          <span className="font-mono text-[12px] leading-tight text-white">max {format(maxPayout)}</span>
+          <span className="font-mono text-[12px] leading-tight text-white">{maxLabel}</span>
           <span className="font-mono text-[10px] font-bold leading-tight text-white/55">
             {format(payoutPerPointFor(selectedSide))}/pt
           </span>
         </button>
         <p className="text-center text-[10px] font-medium leading-snug text-slate-500">
-          Payout scales with points ITM, up to max
+          Risk: {format(stake)}
         </p>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { useCurrency } from "@/lib/currency-context";
 import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
+import { directionalWinCondition, formatPayoutWithReturn } from "@/lib/binary/display";
 
 type DirKind = DirectionalKind;
 type DirSide = DirectionalSide;
@@ -42,6 +43,7 @@ export function DirectionalPanel({
   stakePresets, minStake,
   payoutFor, rejectReasonFor, format, formatSpot,
   onTrade, placing, openPositions,
+  onBarrierFocus,
 }: {
   currency: string;
   kind: DirKind;
@@ -64,6 +66,8 @@ export function DirectionalPanel({
   onTrade: (side: DirSide) => void;
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
+  /** Pulse the chart barrier/strike when the offset field is focused. */
+  onBarrierFocus?: (focused: boolean) => void;
 }) {
   const { convert, toKes, currency: cc } = useCurrency();
   const needsBarrier = kind !== "RISE_FALL";
@@ -71,10 +75,10 @@ export function DirectionalPanel({
   const barrier = latestSpot + barrierOffset;
   const reasonFor = rejectReasonFor ?? (() => null);
   const barrierHint = sides.map(reasonFor).find((r) => r && r !== "Pricing…") ?? null;
-  const payoutLabel = (side: DirSide) => {
+  const payoutLabel = (side: DirSide, opts?: { prefix?: "Payout" }) => {
     const reason = reasonFor(side);
     if (reason) return reason;
-    return format(payoutFor(side));
+    return formatPayoutWithReturn(format, payoutFor(side), stake, opts);
   };
 
   useEffect(() => {
@@ -92,6 +96,8 @@ export function DirectionalPanel({
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button.
   const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
   const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+  const desktopWinLine = directionalWinCondition(kind, null);
+  const mobileWinLine = directionalWinCondition(kind, selectedSide);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -113,13 +119,18 @@ export function DirectionalPanel({
         latestSpot={latestSpot}
         offsetStep={offsetStep}
         stakePresets={stakePresets} minStake={minStake}
-        payoutFor={payoutFor} rejectReasonFor={reasonFor} format={format} formatSpot={formatSpot}
+        payoutLabel={payoutLabel} rejectReasonFor={reasonFor} format={format} formatSpot={formatSpot}
+        winLine={mobileWinLine}
+        onBarrierFocus={onBarrierFocus}
         onTrade={onTrade} placing={placing} openPositions={openPositions}
       />
 
       {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
       <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {desktopWinLine}
+        </p>
         {/* Stake */}
         <div className={CARD}>
           <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
@@ -165,19 +176,23 @@ export function DirectionalPanel({
             </div>
             <DraftNumberField
               value={barrierOffset}
-              onCommit={setBarrierOffset}
+              onCommit={(v) => {
+                setBarrierOffset(v);
+                onBarrierFocus?.(true);
+              }}
               signed
               step={offsetStep}
               emptyValue={minBarrierOffset}
               clamp={(n) => clampBarrierOffset(n, minBarrierOffset, maxBarrierOffset)}
               decreaseLabel="Decrease barrier offset"
               increaseLabel="Increase barrier offset"
+              onFocusChange={onBarrierFocus}
             />
-            <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
+            <div className="mt-2 flex items-center justify-between text-[12px]">
               <span className="font-bold text-slate-400">Barrier</span>
               <span className="font-mono font-black text-amber-300">{formatSpot(barrier)}</span>
             </div>
-            <div className="hidden items-center justify-between text-[10px] sm:mt-1 sm:flex">
+            <div className="mt-1 flex items-center justify-between text-[10px]">
               <span className="font-medium text-slate-500">Range</span>
               <span className="font-mono font-bold text-slate-500">±{maxBarrierOffset.toFixed(2)}</span>
             </div>
@@ -214,33 +229,36 @@ export function DirectionalPanel({
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
       {/* Action buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
-        {sides.map((side) => {
-          const isRed = RED_SIDES.has(side);
-          const reason = reasonFor(side);
-          const disabled = !!reason || placing;
-          return (
-            <button
-              key={side}
-              type="button"
-              onClick={() => onTrade(side)}
-              disabled={disabled}
-              title={reason ?? undefined}
-              aria-busy={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
-                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
-              }`}
-            >
-              <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
-                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
-                {sideLabel(side)}
-              </span>
-              <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
-                {payoutLabel(side)}
-              </span>
-            </button>
-          );
-        })}
+      <div className="shrink-0 space-y-1 p-2 pt-1.5 sm:pt-2">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          {sides.map((side) => {
+            const isRed = RED_SIDES.has(side);
+            const reason = reasonFor(side);
+            const disabled = !!reason || placing;
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onTrade(side)}
+                disabled={disabled}
+                title={reason ?? undefined}
+                aria-busy={placing}
+                className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+                  isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
+                }`}
+              >
+                <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+                  <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
+                  {sideLabel(side)}
+                </span>
+                <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
+                  {payoutLabel(side)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
       </div>
     </div>
@@ -257,7 +275,8 @@ function MobileDirectional({
   durationUnit, setDurationUnit, secPerTick,
   barrierOffset, setBarrierOffset, maxBarrierOffset, minBarrierOffset = 0.01, minDuration = 1,
   needsBarrier, barrier, latestSpot, offsetStep,
-  stakePresets, minStake, payoutFor, rejectReasonFor, format, formatSpot,
+  stakePresets, minStake, payoutLabel, rejectReasonFor, format, formatSpot,
+  winLine, onBarrierFocus,
   onTrade, placing, openPositions,
 }: {
   currency: string;
@@ -278,10 +297,12 @@ function MobileDirectional({
   offsetStep: number;
   stakePresets: number[];
   minStake: number;
-  payoutFor: (side: DirSide) => number;
+  payoutLabel: (side: DirSide, opts?: { prefix?: "Payout" }) => string;
   rejectReasonFor: (side: DirSide) => string | null;
   format: (v: number) => string;
   formatSpot: (v: number) => string;
+  winLine: string;
+  onBarrierFocus?: (focused: boolean) => void;
   onTrade: (side: DirSide) => void;
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
@@ -297,14 +318,17 @@ function MobileDirectional({
   const [expanded, setExpanded] = useState(false);
   const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
-  // Deriv shows the barrier as a signed offset from spot (e.g. "+0.00", "-1.28").
+  // Offset primary; absolute barrier price as secondary (spot + offset).
   const barrierLabel = `${barrierOffset >= 0 ? "+" : ""}${barrierOffset.toFixed(2)}`;
   const durationLabel = durationUnit === "seconds" ? `${duration * secPerTick} sec` : `${duration} ${duration === 1 ? "tick" : "ticks"}`;
   const cards = [
-    { key: "duration", label: "Duration", value: durationLabel, accent: "text-white", onClick: () => setPicker("duration") },
-    ...(needsBarrier ? [{ key: "barrier", label: "Barrier", value: barrierLabel, accent: "text-amber-300", onClick: () => setPicker("barrier") }] : []),
-    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
-    ...(needsBarrier ? [] : [{ key: "allow", label: "Allow equals", value: "Soon", accent: "text-slate-500", onClick: () => setPicker("allow") }]),
+    { key: "duration", label: "Duration", value: durationLabel, sub: null as string | null, accent: "text-white", onClick: () => setPicker("duration") },
+    ...(needsBarrier ? [{
+      key: "barrier", label: "Barrier", value: barrierLabel, sub: formatSpot(barrier), accent: "text-amber-300",
+      onClick: () => { onBarrierFocus?.(true); setPicker("barrier"); },
+    }] : []),
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, sub: null, accent: "text-white", onClick: () => setPicker("stake") },
+    ...(needsBarrier ? [] : [{ key: "allow", label: "Allow equals", value: "Soon", sub: null, accent: "text-slate-500", onClick: () => setPicker("allow") }]),
   ];
 
   return (
@@ -322,6 +346,9 @@ function MobileDirectional({
       </button>
 
       <div className="space-y-2.5 px-3 pb-1">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {winLine}
+        </p>
         {/* Side toggle — slim pills (Deriv-style) */}
         <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
           {sides.map((side) => {
@@ -349,6 +376,7 @@ function MobileDirectional({
               <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
                 <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+                {c.sub && <span className="mt-0.5 font-mono text-[11px] font-bold text-slate-500">{c.sub}</span>}
               </button>
             ))}
           </div>
@@ -358,6 +386,7 @@ function MobileDirectional({
               <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
                 <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+                {c.sub && <span className="mt-0.5 truncate font-mono text-[10px] font-bold text-slate-500">{c.sub}</span>}
               </button>
             ))}
           </div>
@@ -381,10 +410,12 @@ function MobileDirectional({
       )}
       {picker === "barrier" && (
         <BarrierSheet
-          latestSpot={latestSpot} offset={barrierOffset} setOffset={setBarrierOffset}
+          latestSpot={latestSpot} offset={barrierOffset}
+          setOffset={(v) => { setBarrierOffset(v); onBarrierFocus?.(true); }}
           maxOffset={maxBarrierOffset}
           minOffset={minBarrierOffset}
-          offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
+          offsetStep={offsetStep} formatSpot={formatSpot}
+          onClose={() => { onBarrierFocus?.(false); setPicker(null); }}
         />
       )}
       {picker === "allow" && <AllowEqualsSheet onClose={() => setPicker(null)} />}
@@ -398,7 +429,7 @@ function MobileDirectional({
       )}
 
       {/* One slim, pill-shaped Buy button (Deriv-style) */}
-      <div className="px-3 pb-2 pt-1">
+      <div className="space-y-1 px-3 pb-2 pt-1">
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
@@ -413,9 +444,10 @@ function MobileDirectional({
             {selectedReason ? sideLabel(selectedSide) : `Buy ${sideLabel(selectedSide)}`}
           </span>
           <span className="font-mono text-[11px] leading-tight text-white/85">
-            {selectedReason ? selectedReason : `Payout ${format(payoutFor(selectedSide))}`}
+            {selectedReason ? selectedReason : payoutLabel(selectedSide, { prefix: "Payout" })}
           </span>
         </button>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
     </div>
   );

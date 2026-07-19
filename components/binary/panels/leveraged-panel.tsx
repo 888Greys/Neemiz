@@ -8,6 +8,7 @@ import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { ValuePickerSheet } from "./digit-panel";
 import { TakeProfitSheet } from "./accumulators-panel";
 import { useCurrency } from "@/lib/currency-context";
+import { leveragedWinCondition } from "@/lib/binary/display";
 import { MULTIPLIERS, type LeveragedKindT, type LeveragedDirection } from "@/lib/leveraged";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
@@ -103,6 +104,9 @@ export function LeveragedPanel({
       )}
     <div className="hidden h-full min-h-0 flex-col sm:flex">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {leveragedWinCondition(kind)}
+        </p>
         {/* Multiplier (MULTIPLIER) or barrier distance (TURBO) */}
         {!isTurbo ? (
           <div className={CARD}>
@@ -181,23 +185,26 @@ export function LeveragedPanel({
       </div>
 
       {/* Direction buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
-        <button type="button" onClick={() => onTrade("UP")} aria-busy={placing}
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#16a085] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#1bb198] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
-          <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
-            <Icon name="trending_up" className="text-[13px] sm:text-[16px]" />
-            {"UP"}
-          </span>
-          <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Long" : `×${multiplier}`}</span>
-        </button>
-        <button type="button" onClick={() => onTrade("DOWN")} aria-busy={placing}
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#e2474b] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#ec5a5e] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
-          <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
-            <Icon name="trending_down" className="text-[13px] sm:text-[16px]" />
-            {"DOWN"}
-          </span>
-          <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Short" : `×${multiplier}`}</span>
-        </button>
+      <div className="shrink-0 space-y-1 p-2 pt-1.5 sm:pt-2">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          <button type="button" onClick={() => onTrade("UP")} aria-busy={placing}
+            className="flex items-center justify-center gap-2 rounded-lg bg-[#16a085] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#1bb198] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
+            <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+              <Icon name="trending_up" className="text-[13px] sm:text-[16px]" />
+              {"UP"}
+            </span>
+            <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Long" : `×${multiplier}`}</span>
+          </button>
+          <button type="button" onClick={() => onTrade("DOWN")} aria-busy={placing}
+            className="flex items-center justify-center gap-2 rounded-lg bg-[#e2474b] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#ec5a5e] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
+            <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+              <Icon name="trending_down" className="text-[13px] sm:text-[16px]" />
+              {"DOWN"}
+            </span>
+            <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Short" : `×${multiplier}`}</span>
+          </button>
+        </div>
+        <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
       </div>
     </div>
     </>
@@ -251,6 +258,9 @@ function MobileTurboPanel({
       </button>
 
       <div className="space-y-2.5 px-3 pb-2">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {leveragedWinCondition("TURBO")}
+        </p>
         <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0d1015] p-1 ring-1 ring-white/[0.07]">
           {(["UP", "DOWN"] as LeveragedDirection[]).map((side) => (
             <button key={side} type="button" onClick={() => setDirection(side)}
@@ -284,11 +294,13 @@ function MobileTurboPanel({
           </div>
         )}
 
-
-        <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
-          className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
-          {<>Buy {direction === "UP" ? "Up" : "Down"}</>}
-        </button>
+        <div className="space-y-1">
+          <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
+            {<>Buy {direction === "UP" ? "Up" : "Down"}</>}
+          </button>
+          <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
+        </div>
       </div>
       {picker === "stake" && <ValuePickerSheet money title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
       {picker === "barrier" && <ValuePickerSheet title="Payout per point" unit="" value={barrierOffset} presets={[offsetStep, offsetStep * 2, offsetStep * 3, offsetStep * 5, offsetStep * 8, offsetStep * 13].map((v) => Number(v.toFixed(2)))} min={-999_999} max={999_999} onChange={setBarrierOffset} onClose={() => setPicker(null)} />}
@@ -348,6 +360,9 @@ function MobileMultiplierPanel({
       </button>
 
       <div className="space-y-2.5 px-3 pb-2">
+        <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
+          {leveragedWinCondition("MULTIPLIER")}
+        </p>
         <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0d1015] p-1 ring-1 ring-white/[0.07]">
           {(["UP", "DOWN"] as LeveragedDirection[]).map((side) => (
             <button key={side} type="button" onClick={() => setDirection(side)}
@@ -387,10 +402,13 @@ function MobileMultiplierPanel({
           <span className="font-mono font-black text-amber-300">{formatSpot(dangerSpot)}</span>
         </button>
 
-        <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
-          className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
-          {<>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
-        </button>
+        <div className="space-y-1">
+          <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
+            {<>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
+          </button>
+          <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>
+        </div>
       </div>
 
       {sheet === "multiplier" && <MultiplierSheet value={multiplier} onChange={setMultiplier} onClose={() => setSheet(null)} />}

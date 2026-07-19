@@ -23,21 +23,23 @@ export interface TradeType {
   categories: TradeCategory[]; // which left-rail filters include it
   upIcon:    string;          // material icon for the bullish/up action
   downIcon:  string;          // material icon for the bearish/down action
+  /** One-line “how it pays” for the picker (no cards). */
+  howItPays: string;
   hot?:      boolean;         // shows an animated 🔥 in the mobile quick bar
 }
 
 // Ordered as they appear in the picker's "All" list.
 export const TRADE_TYPES: TradeType[] = [
-  { id: "accumulators",   label: "Accumulators",   group: "Accumulators",     categories: ["all", "accumulators"],          upIcon: "show_chart",     downIcon: "show_chart" },
-  { id: "vanillas",       label: "Call/Put",       group: "Vanillas",         categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "turbos",         label: "Turbos",         group: "Turbos",           categories: ["all", "multipliers"],           upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "multipliers",    label: "Multipliers",    group: "Multipliers",      categories: ["all", "multipliers"],           upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "rise_fall",      label: "Rise/Fall",      group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "higher_lower",   label: "Higher/Lower",   group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "touch_no_touch", label: "Touch/No Touch", group: "Touch & No Touch", categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "matches_differs",label: "Matches/Differs",group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "even_odd",       label: "Even/Odd",       group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", hot: true },
-  { id: "over_under",     label: "Over/Under",     group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", hot: true },
+  { id: "accumulators",   label: "Accumulators",   group: "Accumulators",     categories: ["all", "accumulators"],          upIcon: "show_chart",     downIcon: "show_chart",     howItPays: "Growth compounds each tick you stay inside the barrier." },
+  { id: "vanillas",       label: "Call/Put",       group: "Vanillas",         categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Paid by how far price finishes past your strike, up to max." },
+  { id: "turbos",         label: "Turbos",         group: "Turbos",           categories: ["all", "multipliers"],           upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Pays per point while open; ends if the barrier is hit." },
+  { id: "multipliers",    label: "Multipliers",    group: "Multipliers",      categories: ["all", "multipliers"],           upIcon: "trending_up",    downIcon: "trending_down", howItPays: "P&L scales with price move × your multiplier." },
+  { id: "rise_fall",      label: "Rise/Fall",      group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if exit finishes above or below entry." },
+  { id: "higher_lower",   label: "Higher/Lower",   group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if exit finishes above or below a barrier." },
+  { id: "touch_no_touch", label: "Touch/No Touch", group: "Touch & No Touch", categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if price does or doesn’t touch a barrier." },
+  { id: "matches_differs",label: "Matches/Differs",group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if the last digit equals — or doesn’t equal — your pick." },
+  { id: "even_odd",       label: "Even/Odd",       group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if the last digit is even or odd at expiry.", hot: true },
+  { id: "over_under",     label: "Over/Under",     group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", howItPays: "Fixed payout if the last digit is over or under your barrier.", hot: true },
 ];
 
 export const TRADE_CATEGORIES: { id: TradeCategory; label: string; icon: string }[] = [
