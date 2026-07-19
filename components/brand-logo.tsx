@@ -24,12 +24,6 @@ export function BrandLogo({ href, size = "md", animated = false, className = "" 
       <span
         className={`inline-flex items-baseline gap-1 font-black tracking-tight ${sizes[size].binary} ${className}`}
       >
-        <span
-          className="grid h-[1.35em] w-[1.35em] place-items-center rounded-md bg-[var(--bok-lime,#b8ff2a)] text-[0.72em] font-black leading-none text-[var(--bok-lime-ink,#0a0f00)]"
-          aria-hidden
-        >
-          B
-        </span>
         <span className="text-white">
           Binary<span className="text-[var(--bok-lime,#b8ff2a)]">KE</span>
         </span>
