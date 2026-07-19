@@ -830,7 +830,9 @@ function MobileMenuDrawer({
     : exploreItems;
 
   return (
-    <div className="fixed inset-0 z-[60] flex animate-fade-in flex-col bg-[#151518] lg:hidden">
+    <div className={`fixed inset-0 z-[60] flex animate-fade-in flex-col lg:hidden ${
+      binaryOnly ? "bok-mobile-drawer bg-black" : "bg-[#151518]"
+    }`}>
       <div className="flex items-center gap-2.5 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <button
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
@@ -896,7 +898,9 @@ function MobileMenuDrawer({
                     href={c.href}
                     prefetch={false}
                     onClick={onClose}
-                    className="rounded-full bg-white/[0.05] px-3.5 py-2 text-[13px] font-bold text-emerald-400 transition hover:bg-white/[0.09]"
+                    className={`rounded-full bg-white/[0.05] px-3.5 py-2 text-[13px] font-bold transition hover:bg-white/[0.09] ${
+                      binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-emerald-400"
+                    }`}
                   >
                     {c.label}
                   </Link>
@@ -946,37 +950,59 @@ function MobileMenuDrawer({
       ) : (
         <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-6">
           {!isSignedIn && (
-            <section className="mb-5 grid grid-cols-2 gap-2">
-              <button
-                onClick={onOpenLogin}
-                className="rounded-xl bg-white/[0.06] py-3 text-[13px] font-bold text-white"
-                type="button"
-              >
-                Log in
-              </button>
-              <button
-                onClick={onOpenRegister}
-                className={
-                  binaryOnly
-                    ? "bok-dialog-cta rounded-xl py-3 text-[13px]"
-                    : "rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
-                }
-                type="button"
-              >
-                Register
-              </button>
-            </section>
+            binaryOnly ? (
+              <section className="mb-5 space-y-3">
+                <button
+                  onClick={onOpenRegister}
+                  className="bok-dialog-cta w-full py-3.5 text-[14px]"
+                  type="button"
+                >
+                  Start for free
+                </button>
+                <button
+                  onClick={onOpenLogin}
+                  className="flex w-full items-center justify-center gap-2 py-2.5 text-[13px] font-bold text-[var(--bok-lime,#b8ff2a)] transition hover:opacity-85"
+                  type="button"
+                >
+                  <Icon name="person" className="text-[18px]" />
+                  Login
+                </button>
+              </section>
+            ) : (
+              <section className="mb-5 grid grid-cols-2 gap-2">
+                <button
+                  onClick={onOpenLogin}
+                  className="rounded-xl bg-white/[0.06] py-3 text-[13px] font-bold text-white"
+                  type="button"
+                >
+                  Log in
+                </button>
+                <button
+                  onClick={onOpenRegister}
+                  className="rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
+                  type="button"
+                >
+                  Register
+                </button>
+              </section>
+            )
           )}
 
           {isSignedIn && (
-            <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+            <div className={`mb-4 rounded-2xl p-4 ${
+              binaryOnly
+                ? "bok-drawer-wallet bg-white/[0.03] ring-1 ring-[rgba(184,255,42,0.22)]"
+                : "bg-white/[0.03] ring-1 ring-white/[0.07]"
+            }`}>
               <div className="flex w-full items-center gap-2">
                 <button
                   type="button"
                   onClick={() => onOpenWallet()}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Wallet balance</span>
+                  <span className={`block text-[10px] font-bold uppercase tracking-[0.14em] ${
+                    binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]/70" : "text-slate-500"
+                  }`}>Wallet balance</span>
                   <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums tracking-wide text-white">
                     {balanceHidden
                       ? "* * * *"
@@ -984,7 +1010,9 @@ function MobileMenuDrawer({
                           minimumFractionDigits: displayCurrency.decimals,
                           maximumFractionDigits: displayCurrency.decimals,
                         })}
-                    <span className="ml-1.5 text-[12px] font-bold text-slate-500">{displayCode}</span>
+                    <span className={`ml-1.5 text-[12px] font-bold ${
+                      binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-slate-500"
+                    }`}>{displayCode}</span>
                   </span>
                 </button>
                 <button
@@ -1014,9 +1042,15 @@ function MobileMenuDrawer({
                     key={a.tab}
                     type="button"
                     onClick={() => onOpenWallet(a.tab)}
-                    className="flex flex-col items-center gap-2 rounded-xl bg-white/[0.04] py-3 text-[11px] font-semibold text-slate-300 transition hover:bg-white/[0.07] hover:text-white"
+                    className={`flex flex-col items-center gap-2 rounded-xl py-3 text-[11px] font-semibold transition ${
+                      binaryOnly
+                        ? "bg-white/[0.04] text-slate-200 hover:bg-[rgba(184,255,42,0.1)] hover:text-white"
+                        : "bg-white/[0.04] text-slate-300 hover:bg-white/[0.07] hover:text-white"
+                    }`}
                   >
-                    <Icon name={a.icon} className="text-[19px] text-slate-400" />
+                    <Icon name={a.icon} className={`text-[19px] ${
+                      binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-slate-400"
+                    }`} />
                     {a.label}
                   </button>
                 ))}
@@ -1153,14 +1187,17 @@ function LanguageSheet({ current, onClose, onSelect }: { current: string; onClos
 }
 
 function MobileDrawerLink({ active, badge, href, icon, label, nested, onClick }: { active?: boolean; badge?: string; href?: string; icon: string; label: string; nested?: boolean; onClick: () => void }) {
+  const binaryOnly = useIsBinarySurface();
   const cls = `flex w-full items-center gap-3 rounded-lg py-2.5 text-left transition active:scale-[0.99] ${
     nested ? "py-2" : ""
   } ${active ? "text-white" : "text-slate-300 active:bg-white/[0.03]"}`;
+  const accent = binaryOnly ? "text-[var(--bok-lime,#b8ff2a)]" : "text-[#087cff]";
+  const dot = binaryOnly ? "bg-[var(--bok-lime,#b8ff2a)]" : "bg-[#087cff]";
   const inner = (
     <>
       <Icon
         name={icon}
-        className={`${nested ? "text-[16px]" : "text-[20px]"} ${active ? "text-[#087cff]" : "text-slate-500"}`}
+        className={`${nested ? "text-[16px]" : "text-[20px]"} ${active ? accent : "text-slate-500"}`}
       />
       <span className={`flex-1 font-bold ${nested ? "text-[13px]" : "text-[14px]"} ${active ? "text-white" : ""}`}>
         {label}
@@ -1170,7 +1207,7 @@ function MobileDrawerLink({ active, badge, href, icon, label, nested, onClick }:
           {badge}
         </span>
       )}
-      {active && !nested && <span className="h-1.5 w-1.5 rounded-full bg-[#087cff]" />}
+      {active && !nested && <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />}
     </>
   );
   if (!href) {

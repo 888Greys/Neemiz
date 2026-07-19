@@ -34,6 +34,7 @@ import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
 } from "@/lib/wallet-withdraw-options";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -134,12 +135,16 @@ const MPESA_WITHDRAWALS_ENABLED = true;
 type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 
 export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
+  const bok = useIsBinarySurface();
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
   // Display currency (header switcher). KES balances render in the chosen
   // currency; M-Pesa amounts stay KES below (it's a Kenya-only rail).
   const { format: formatDisplay, code: displayCurrency } = useCurrency();
+  const primaryBtn = bok
+    ? "bok-dialog-cta h-12 w-full text-sm disabled:opacity-60"
+    : "h-12 w-full rounded-xl text-sm";
 
   // ── fiat deposit state ──
   const [tab, setTab]                     = useState<WalletTab>(initialTab);
@@ -690,7 +695,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const activeTitle = tab.charAt(0).toUpperCase() + tab.slice(1);
 
   return (
-    <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[520px]" : "min-h-[calc(100dvh-8rem)]"}`}>
+    <div className={`w-full text-white ${bok ? "bok-wallet bg-black" : "bg-[#151518]"} ${wide ? "lg:min-h-[520px]" : "min-h-[calc(100dvh-8rem)]"}`}>
       {tab === "home" ? (
         <WalletHome
           balanceKes={isSignedIn ? balance : 0}
@@ -845,7 +850,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <Button
                       onClick={() => void handlePesapalDeposit()}
                       disabled={loading || !amount}
-                      className="h-12 w-full rounded-xl text-sm"
+                      className={primaryBtn}
                     >
                       {loading ? (
                         <LoadingDots label="Opening secure checkout" />
@@ -921,7 +926,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                 <Button
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
                   disabled={loading || !amount || !phone}
-                  className="h-12 w-full rounded-xl text-sm"
+                  className={primaryBtn}
                 >
                   {loading ? (
                     <LoadingDots label="Sending prompt" />
@@ -1307,7 +1312,9 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
               type="button"
               onClick={confirmWithPassword}
               disabled={stepUpBusy || !stepUpPw}
-              className="mt-4 w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
+              className={bok
+                ? "bok-dialog-cta mt-4 w-full py-3.5 text-sm disabled:opacity-60"
+                : "mt-4 w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"}
             >
               {stepUpBusy ? <LoadingDots label="Verifying" /> : (stepUpAction === "send" ? "Confirm & send" : "Confirm & withdraw")}
             </button>
@@ -1392,6 +1399,7 @@ function WalletHome({
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
 }) {
+  const bok = useIsBinarySurface();
   const { code, currency: displayCurrency, format, toKES } = useCurrency();
   const [pickingCurrency, setPickingCurrency] = useState(false);
   const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
@@ -1476,7 +1484,10 @@ function WalletHome({
           </p>
         )}
         {!isSignedIn && (
-          <Button onClick={onLogin} className="mt-6 h-11 w-full max-w-xs rounded-xl text-sm">
+          <Button
+            onClick={onLogin}
+            className={bok ? "bok-dialog-cta mt-6 h-11 w-full max-w-xs text-sm" : "mt-6 h-11 w-full max-w-xs rounded-xl text-sm"}
+          >
             Log in
           </Button>
         )}
@@ -1490,7 +1501,11 @@ function WalletHome({
             onClick={() => onOpen(action.tab)}
             className="flex flex-col items-center gap-2 rounded-xl px-1 py-2 text-center transition active:scale-[0.96] hover:bg-white/[0.04]"
           >
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white ring-1 ring-white/[0.06]">
+            <span className={`grid h-11 w-11 place-items-center rounded-full ring-1 ${
+              bok
+                ? "bg-[rgba(184,255,42,0.1)] text-[var(--bok-lime,#b8ff2a)] ring-[rgba(184,255,42,0.28)]"
+                : "bg-white/[0.06] text-white ring-white/[0.06]"
+            }`}>
               <Icon name={action.icon} className="text-[20px]" />
             </span>
             <span className="text-[11px] font-bold text-slate-300">{action.label}</span>
@@ -1609,6 +1624,7 @@ function DepositMethodStep({
   displayCurrency: string;
   onContinue: (selection: DepositSelection) => void;
 }) {
+  const bok = useIsBinarySurface();
   const fallbackCountry = findCountryByCurrency(displayCurrency)?.code
     ?? findCountryByCurrency("USD")?.code
     ?? "US";
@@ -1764,11 +1780,13 @@ function DepositMethodStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] bg-[#151518] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className={`sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 ${
+        bok ? "bg-black" : "bg-[#151518]"
+      }`}>
         <Button
           onClick={() => selected?.selection && onContinue(selected.selection)}
           disabled={!selected}
-          className="h-11 w-full rounded-xl text-sm"
+          className={bok ? "bok-dialog-cta h-11 w-full text-sm disabled:opacity-60" : "h-11 w-full rounded-xl text-sm"}
         >
           Continue
         </Button>
@@ -2351,6 +2369,7 @@ function CryptoDepositPanel({
 }: {
   backRef?: MutableRefObject<(() => boolean) | null>;
 }) {
+  const bok = useIsBinarySurface();
   const coins = useMemo(() => cryptoDepositCoinRows(), []);
   const [step, setStep] = useState<CryptoDepositStep>("asset");
   const [code, setCode] = useState<string | null>(null);
@@ -2416,7 +2435,9 @@ function CryptoDepositPanel({
 
   const continueFooter =
     step === "asset" || step === "network" ? (
-      <div className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] bg-[#151518] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className={`sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 ${
+        bok ? "bg-black" : "bg-[#151518]"
+      }`}>
         <Button
           onClick={() => {
             if (step === "asset") {
@@ -2430,7 +2451,7 @@ function CryptoDepositPanel({
             setStep("address");
           }}
           disabled={step === "asset" ? !selectedCoinLive : !selectedNetLive}
-          className="h-11 w-full rounded-xl text-sm"
+          className={bok ? "bok-dialog-cta h-11 w-full text-sm disabled:opacity-60" : "h-11 w-full rounded-xl text-sm"}
         >
           Continue
         </Button>
@@ -2566,7 +2587,9 @@ function CryptoDepositPanel({
                   type="button"
                   onClick={() => load(asset.code, asset.network)}
                   disabled={addr.phase === "generating"}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-bold text-white transition hover:bg-[#1a8cff] disabled:opacity-60"
+                  className={bok
+                    ? "bok-dialog-cta flex h-11 w-full items-center justify-center gap-2 text-sm disabled:opacity-60"
+                    : "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-bold text-white transition hover:bg-[#1a8cff] disabled:opacity-60"}
                 >
                   {addr.phase === "generating"
                     ? <LoadingDots label="Generating" />
@@ -2605,7 +2628,9 @@ function CryptoDepositPanel({
                   <button
                     type="button"
                     onClick={copy}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-bold text-white transition hover:bg-[#1a8cff] active:scale-[0.99]"
+                    className={bok
+                      ? "bok-dialog-cta flex h-11 w-full items-center justify-center gap-2 text-[13px] active:scale-[0.99]"
+                      : "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-bold text-white transition hover:bg-[#1a8cff] active:scale-[0.99]"}
                   >
                     <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
                     {copied ? "Copied" : "Copy address"}
