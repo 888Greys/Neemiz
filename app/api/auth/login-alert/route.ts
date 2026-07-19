@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendNewLoginEmail } from "@/lib/brevo";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 import { checkDeviceGate, hashDeviceId } from "@/lib/device-gate";
 
 export const dynamic = "force-dynamic";
@@ -99,10 +100,14 @@ export async function POST(request: Request) {
   }
 
   // New user↔device link — enforce per-device account cap + Tor block.
-  const gate = await checkDeviceGate(rawDeviceId, {
-    excludeUserId: appUser.id,
-    req: request,
-  });
+  // Admins / owners skip the account-cap (still record the device for alerts).
+  const bypassDeviceCap = appUser.isAdmin || isOwnerEmail(appUser.email);
+  const gate = bypassDeviceCap
+    ? { ok: true as const, users: 0, max: 1 }
+    : await checkDeviceGate(rawDeviceId, {
+        excludeUserId: appUser.id,
+        req: request,
+      });
   if (!gate.ok) {
     const priorDevices = await db.loginDevice.count({ where: { userId: appUser.id } });
     const accountAgeMs = Date.now() - new Date(appUser.createdAt).getTime();
