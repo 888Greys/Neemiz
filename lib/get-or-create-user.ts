@@ -24,9 +24,16 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
   const existing = await db.user.findUnique({ where: { supabaseId } });
   if (existing) {
     if (!existing.isActive) throw new SuspendedAccountError();
+    const patch: { username?: string; imageUrl?: string } = {};
     if (!existing.username) {
-      const username = await generateUniqueUsername(db, data);
-      return db.user.update({ where: { id: existing.id }, data: { username } });
+      patch.username = await generateUniqueUsername(db, data);
+    }
+    // Backfill avatar when the row was created before Google meta landed.
+    if (!existing.imageUrl && data?.imageUrl) {
+      patch.imageUrl = data.imageUrl;
+    }
+    if (Object.keys(patch).length > 0) {
+      return db.user.update({ where: { id: existing.id }, data: patch });
     }
     return existing;
   }

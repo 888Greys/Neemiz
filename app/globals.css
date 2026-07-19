@@ -350,6 +350,19 @@ input[type="email"]:focus {
 }
 .animate-sheet-backdrop-out { animation: sheet-backdrop-out 0.18s var(--ease-out) both; }
 
+/* Trade-type picker: desktop slides in from the panel edge */
+@keyframes trade-picker-in {
+  from { opacity: 0.85; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-trade-picker-in { animation: trade-picker-in 0.28s var(--ease-drawer) both; }
+
+@keyframes trade-picker-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-12px); }
+}
+.animate-trade-picker-out { animation: trade-picker-out 0.2s var(--ease-out) both; }
+
 /* Favourites list: short stagger (30–50ms) — decorative, never blocks taps */
 @keyframes fav-row-in {
   from { opacity: 0; transform: translateY(8px); }

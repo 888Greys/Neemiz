@@ -83,6 +83,10 @@ export async function POST(req: Request) {
   if (event.type === "UPDATE" && event.record) {
     const { id, email, phone, raw_user_meta_data } = event.record;
 
+    const avatar =
+      (typeof raw_user_meta_data?.avatar_url === "string" && raw_user_meta_data.avatar_url) ||
+      (typeof raw_user_meta_data?.picture === "string" && raw_user_meta_data.picture) ||
+      null;
     await db.user.updateMany({
       where: { supabaseId: id },
       data: {
@@ -90,7 +94,8 @@ export async function POST(req: Request) {
         phone: phone ?? null,
         firstName: raw_user_meta_data?.first_name ?? null,
         lastName: raw_user_meta_data?.last_name ?? null,
-        imageUrl: raw_user_meta_data?.avatar_url ?? raw_user_meta_data?.picture ?? null,
+        // Don't wipe a stored avatar when an UPDATE event omits meta.
+        ...(avatar ? { imageUrl: avatar } : {}),
       },
     });
   }

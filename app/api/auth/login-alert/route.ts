@@ -49,7 +49,15 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const appUser = await getOrCreateUser(user.id, { email: user.email });
+  const meta = user.user_metadata ?? {};
+  const avatar =
+    (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+    (typeof meta.picture === "string" && meta.picture) ||
+    null;
+  const appUser = await getOrCreateUser(user.id, {
+    email: user.email,
+    imageUrl: avatar,
+  });
   const ua = request.headers.get("user-agent") ?? "";
   const ip = request.headers.get("cf-connecting-ip")
     ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()

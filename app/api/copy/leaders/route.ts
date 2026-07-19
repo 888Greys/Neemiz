@@ -5,17 +5,19 @@ import { isCopyTradingEnabled, MVP_COPYABLE_FAMILIES } from "@/lib/copy-trading"
 
 export const dynamic = "force-dynamic";
 
-/** Public list of ACTIVE copy leaders with trailing 7d sample stats. */
+const SAMPLE_WINDOW_DAYS = 30;
+
+/** Public list of ACTIVE copy leaders with trailing sample stats (copyable families). */
 export async function GET() {
   if (!(await isCopyTradingEnabled())) {
     return Response.json({ leaders: [], enabled: false });
   }
 
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const since = new Date(Date.now() - SAMPLE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const leaders = await db.copyLeaderProfile.findMany({
     where: { status: "ACTIVE", isPublic: true },
     include: {
-      user: { select: { id: true, username: true, isAdmin: true } },
+      user: { select: { id: true, username: true, isAdmin: true, imageUrl: true } },
       _count: { select: { follows: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -73,6 +75,7 @@ export async function GET() {
       username: L.user.username ?? L.displayName ?? "trader",
       displayName: L.displayName,
       bio: L.bio,
+      imageUrl: L.user.imageUrl,
       allowedFamilies: L.allowedFamilies.split(",").map((s) => s.trim()).filter(Boolean),
       followers: L._count.follows,
       sample: {
@@ -80,6 +83,7 @@ export async function GET() {
         winRate: n ? wins / n : null,
         pnlKes: Math.round(pnl),
         volumeKes: Math.round(stakeSum),
+        windowDays: SAMPLE_WINDOW_DAYS,
       },
     });
   }
@@ -90,6 +94,7 @@ export async function GET() {
   return Response.json({
     leaders: out,
     enabled: true,
+    sampleWindowDays: SAMPLE_WINDOW_DAYS,
     mvpFamilies: [...MVP_COPYABLE_FAMILIES],
   });
 }
