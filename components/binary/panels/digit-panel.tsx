@@ -77,10 +77,10 @@ export function DigitPanel({
   const [armedSide, setArmedSide] = useState<ContractSide>(sides[0]);
   const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
   const reasonFor = rejectReasonFor ?? (() => null);
-  const matchesReason = reasonFor("Matches");
   const payoutLabel = (side: ContractSide, opts?: { prefix?: "Payout" }) => {
     const reason = reasonFor(side);
-    if (reason) return reason;
+    // Soft "—" sentinel keeps Buy disabled but must not replace the payout line.
+    if (reason && reason !== "—") return reason;
     const payout = payoutFor(side);
     if (!(payout > 0) && side === "Matches") return "Pricing…";
     return formatPayoutWithReturn(format, payout, stake, opts);
@@ -186,7 +186,7 @@ export function DigitPanel({
                     key={d}
                     type="button"
                     onClick={() => setTargetDigit(d)}
-                    title={lessAvail ? "Less available for Matches" : undefined}
+                    title={lessAvail ? "Busy — auto-skips for Matches" : undefined}
                     className={`relative rounded-md py-1.5 font-mono text-[14px] font-black transition sm:py-2 sm:text-[15px] ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
                              : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_14px_rgba(245,185,66,0.45)]"
@@ -226,12 +226,6 @@ export function DigitPanel({
           </div>
         </div>
 
-        {/* Calm Matches availability note — never a red Trade-failed toast. */}
-        {family === "matchDiffer" && matchesReason && matchesReason !== "Pricing…" && (
-          <p className="px-0.5 text-center text-[11px] font-medium leading-snug text-slate-400">
-            {matchesReason}
-          </p>
-        )}
       </div>
 
       {/* Live position banner — keeps the in-flight trade visible right where
@@ -251,7 +245,7 @@ export function DigitPanel({
                 type="button"
                 onClick={() => onTrade(side)}
                 disabled={disabled}
-                title={reason ?? undefined}
+                title={reason && reason !== "—" ? reason : undefined}
                 aria-busy={placing}
                 className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
                   isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e] disabled:hover:bg-[#e2474b]" : "bg-[#16a085] hover:bg-[#1bb198] disabled:hover:bg-[#16a085]"
@@ -261,7 +255,7 @@ export function DigitPanel({
                   <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
                   {actionLabel(side)}
                 </span>
-                <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason ? "text-white/70" : "text-white/85"}`}>
+                <span className={`font-mono text-[9px] leading-none sm:text-[12px] ${reason && reason !== "—" ? "text-white/70" : "text-white/85"}`}>
                   {payoutLabel(side)}
                 </span>
               </button>
@@ -311,8 +305,12 @@ function MobileDerivDigits({
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
   const selectedReason = rejectReasonFor(selectedSide);
-  const matchesReason = rejectReasonFor("Matches");
   const buyDisabled = !!selectedReason || placing;
+  // Soft availability uses "—" — keep Buy disabled but don't print it under the label.
+  const buySub =
+    !selectedReason || selectedReason === "—"
+      ? null
+      : selectedReason;
   const { convert, currency: cc } = useCurrency();
   const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   // Which value the bottom-sheet picker is editing (Deriv-style); null = closed.
@@ -390,7 +388,7 @@ function MobileDerivDigits({
                     key={d}
                     type="button"
                     onClick={() => setTargetDigit(d)}
-                    title={lessAvail ? "Less available for Matches" : undefined}
+                    title={lessAvail ? "Busy — auto-skips for Matches" : undefined}
                     className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
                              : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_16px_rgba(245,185,66,0.5)]"
@@ -430,11 +428,6 @@ function MobileDerivDigits({
           </button>
         </div>
 
-        {matchesReason && matchesReason !== "Pricing…" && selectedSide === "Matches" && (
-          <p className="px-1 text-center text-[11px] font-medium leading-snug text-slate-400">
-            {matchesReason}
-          </p>
-        )}
       </div>
 
       {picker === "duration" && (
@@ -461,17 +454,19 @@ function MobileDerivDigits({
           type="button"
           onClick={() => onTrade(selectedSide)}
           disabled={buyDisabled}
-          title={selectedReason ?? undefined}
+          title={buySub ?? undefined}
           aria-busy={placing}
           className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${
             armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
           <span className="text-[15px] leading-tight">
-            {selectedReason ? actionLabel(selectedSide) : `Buy ${actionLabel(selectedSide)}`}
+            {buySub && buySub !== "Pricing…" ? actionLabel(selectedSide) : `Buy ${actionLabel(selectedSide)}`}
           </span>
           <span className="font-mono text-[11px] leading-tight text-white/85">
-            {selectedReason ? selectedReason : payoutLabel(selectedSide, { prefix: "Payout" })}
+            {buyDisabled && !buySub
+              ? "\u00a0"
+              : (buySub ?? payoutLabel(selectedSide, { prefix: "Payout" }))}
           </span>
         </button>
         <p className="text-center text-[10px] font-medium text-slate-500">Risk: {format(stake)}</p>

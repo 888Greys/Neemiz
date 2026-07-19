@@ -57,7 +57,6 @@ import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
   MATCHES_FREQ_LO,
-  digitUnavailableCopy,
   isCalmDigitAvailabilityReject,
   isCalmDirectionalReject,
   minBarrierOffsetPts,
@@ -1177,6 +1176,19 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     return out.size ? out : undefined;
   }, [family, ticks]);
 
+  // Matches: silently hop off busy digits instead of sticking "unavailable" on Buy.
+  useEffect(() => {
+    if (family !== "matchDiffer" || !lessAvailableDigits?.has(targetDigit)) return;
+    const open = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((d) => !lessAvailableDigits.has(d));
+    if (!open.length) return;
+    const next = open.includes(latest.digit)
+      ? latest.digit
+      : open.reduce((best, d) =>
+          Math.abs(d - targetDigit) < Math.abs(best - targetDigit) ? d : best,
+        );
+    if (next !== targetDigit) setTargetDigit(next);
+  }, [family, lessAvailableDigits, targetDigit, latest.digit]);
+
   // Live net payout (what an accumulator cash-out would credit now).
   const accaNetPayout = accaPos
     ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
@@ -2166,8 +2178,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     if (placing || stake <= 0) return;
     const reject = digitRejectReason(side);
     if (reject) {
-      // Button should already be disabled; calm info only — never "Trade failed".
-      if (reject !== "Pricing…") toast.info(reject);
+      // Button should already be disabled. Soft digit gates stay silent (grid hops /
+      // dims) — never toast the old "unavailable — try another" sermon.
+      if (reject !== "Pricing…" && reject !== "—") toast.info(reject);
       return;
     }
     if (balance < stake) {
@@ -2223,7 +2236,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           setTransactions(prevTx);
           const err = data.error ?? "Could not place trade";
           if (isCalmDigitAvailabilityReject(err)) {
-            toast.info(digitUnavailableCopy(side));
+            // Soft gate — no toast sermon; hop/dim handles UX.
           } else {
             toast.error("Trade failed", err);
           }
@@ -2348,55 +2361,90 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             <div className="relative min-h-0 flex-1">
               {/* Mobile chrome sits in reserved top pad — no heavy fade over the plot. */}
               <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-1 bg-[#151518] px-2 pb-2 pt-2 sm:hidden">
-                <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => selectTradeType(t.id)}
-                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
-                        tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
-                      }`}
-                    >
-                      {t.label}
-                      {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
-                    </button>
-                  ))}
+                {/* Type chips scroll; All + Copy stay pinned so nothing hides off-screen. */}
+                <div className="flex items-center gap-1.5">
+                  <div className="relative min-w-0 flex-1">
+                    <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-5">
+                      {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => selectTradeType(t.id)}
+                          className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
+                            tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
+                          }`}
+                        >
+                          {t.label}
+                          {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Edge fade = “more types this way” without needing a scroll tutorial. */}
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-gradient-to-l from-[#151518] via-[#151518]/85 to-transparent"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setPickerOpen(true)}
-                    className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
+                    title="View all trade types"
+                    aria-label="View all trade types"
+                    className="flex shrink-0 items-center gap-0.5 rounded-full bg-sky-500/10 px-2.5 py-1.5 text-[12px] font-black text-sky-300 ring-1 ring-sky-400/25 transition active:scale-[0.97]"
                   >
-                    View all
+                    <Icon name="apps" className="text-[15px]" />
+                    All
                   </button>
                   <button
                     type="button"
                     onClick={() => setCopyOpen(true)}
-                    className="shrink-0 whitespace-nowrap rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-black text-slate-300"
+                    title="Copy trading"
+                    aria-label="Copy trading"
+                    className="shrink-0 rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.08] transition active:scale-[0.97] hover:text-white"
                   >
                     Copy
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setMarketsOpen(true)}
-                  disabled={!!accaPos || !!levPos}
-                  className="flex items-center gap-2.5 px-1 py-0.5 text-left disabled:opacity-50"
-                >
-                  <MarketIcon symbol={market.symbol} size={32} />
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-0.5">
-                      <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
-                      <Icon name="expand_more" className="text-[18px] text-slate-400" />
-                    </span>
-                    <span className="mt-0.5 flex items-baseline gap-1.5">
-                      <span className="font-mono text-[12px] font-black text-white">{formatQuote(latest.quote)}</span>
-                      <span className={`font-mono text-[10px] font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                        {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                <div className="flex items-center gap-2 px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMarketsOpen(true)}
+                    disabled={!!accaPos || !!levPos}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 py-0.5 text-left disabled:opacity-50"
+                  >
+                    <MarketIcon symbol={market.symbol} size={32} />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-0.5">
+                        <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
+                        <Icon name="expand_more" className="text-[18px] text-slate-400" />
+                      </span>
+                      <span className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="font-mono text-[12px] font-black text-white">{formatQuote(latest.quote)}</span>
+                        <span className={`font-mono text-[10px] font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                          {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                        </span>
                       </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.replace(`${pathname}?panel=positions`, { scroll: false })}
+                    title="Positions"
+                    aria-label="Open positions"
+                    className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-full ring-1 transition active:scale-[0.96] ${
+                      panel === "positions"
+                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/35"
+                        : "bg-white/[0.04] text-slate-300 ring-white/[0.08] hover:text-white"
+                    }`}
+                  >
+                    <Icon name="swap_vert" className="text-[20px]" />
+                    {openPositions.length > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 grid min-w-4 h-4 place-items-center rounded-full bg-sky-500 px-0.5 text-[9px] font-black leading-none text-white">
+                        {openPositions.length > 99 ? "99+" : openPositions.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Chart below mobile header so the line never sits under a fade. */}
@@ -3093,10 +3141,8 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
   );
 }
 
-// Mobile-only full-screen Positions surface (Deriv-style). Sits between the app
-// header and the bottom nav (both stay visible/tappable), with Open / Closed
-// tabs. Opened by the bottom-nav Positions tab (?panel=positions); hidden on lg+
-// where the desktop rail shows positions instead.
+// Mobile Positions bottom sheet — slides up from the trade floor (same motion
+// language as MarketsSheet). Opened from the Vol-row swap_vert control.
 function MobilePositions({
   tab, setTab, openPositions, allClosedPositions, onClose,
 }: {
@@ -3106,47 +3152,88 @@ function MobilePositions({
   allClosedPositions: ClosedPosition[];
   onClose: () => void;
 }) {
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      onClose();
+      closeTimer.current = null;
+    }, 220);
+  }, [closing, onClose]);
+
   return (
-    <div className="fixed inset-x-0 bottom-0 top-14 z-40 flex flex-col bg-[#151518] lg:hidden">
-      {/* Open / Closed tabs */}
-      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] text-[13px] font-black">
-        {(["open", "closed"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`flex-1 py-3.5 transition ${tab === t ? "border-b-2 border-white text-white" : "text-slate-500"}`}
-          >
-            {t === "open" ? `Open${openPositions.length ? ` (${openPositions.length})` : ""}` : "Closed"}
-          </button>
-        ))}
+    <div
+      className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Positions"
+    >
+      <button
+        type="button"
+        aria-label="Close positions"
+        onClick={requestClose}
+        className={`absolute inset-0 bg-black/55 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
+      />
+      <div
+        className={`relative flex max-h-[78dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.08] ${
+          closing ? "animate-sheet-out" : "animate-sheet-in"
+        }`}
+      >
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Back to trade"
-          className="grid w-12 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 active:text-white"
+          onClick={requestClose}
+          className="flex w-full justify-center pt-2.5 pb-1"
+          aria-label="Close sheet"
         >
-          <Icon name="close" className="text-[20px]" />
+          <span className="h-1 w-10 rounded-full bg-white/20" />
         </button>
-      </div>
 
-      {/* Tab content */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "open" ? (
-          openPositions.length === 0 ? (
-            <PositionsEmpty icon="work" title="No open positions" subtitle="Your open positions will appear here." />
+        <div className="flex shrink-0 items-stretch border-b border-white/[0.07] text-[13px] font-black">
+          {(["open", "closed"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`flex-1 py-3 transition ${tab === t ? "border-b-2 border-white text-white" : "text-slate-500"}`}
+            >
+              {t === "open" ? `Open${openPositions.length ? ` (${openPositions.length})` : ""}` : "Closed"}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Back to trade"
+            className="grid w-12 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 active:text-white"
+          >
+            <Icon name="close" className="text-[20px]" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {tab === "open" ? (
+            openPositions.length === 0 ? (
+              <PositionsEmpty icon="swap_vert" title="No open positions" subtitle="Your open positions will appear here." />
+            ) : (
+              <div className="space-y-2 p-3">
+                {openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)}
+              </div>
+            )
+          ) : allClosedPositions.length === 0 ? (
+            <PositionsEmpty icon="history" title="No closed positions" subtitle="Settled contracts will appear here." />
           ) : (
             <div className="space-y-2 p-3">
-              {openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)}
+              {allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)}
             </div>
-          )
-        ) : allClosedPositions.length === 0 ? (
-          <PositionsEmpty icon="history" title="No closed positions" subtitle="Settled contracts will appear here." />
-        ) : (
-          <div className="space-y-2 p-3">
-            {allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

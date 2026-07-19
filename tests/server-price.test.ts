@@ -303,35 +303,23 @@ describe("priceDigitServer", () => {
     }
   });
 
-  it("shortDigitRejectReason maps gate copy for the Matches Buy label", () => {
-    expect(shortDigitRejectReason("digit distribution unstable (freq 17.5%)", "Matches")).toBe(
-      "Matches unavailable for this digit — try another",
-    );
-    expect(shortDigitRejectReason("insufficient conditional data", "Matches")).toBe(
-      "Matches unavailable for this digit — try another",
-    );
+  it("shortDigitRejectReason keeps soft digit gates quiet (no Buy-label sermon)", () => {
+    expect(shortDigitRejectReason("digit distribution unstable (freq 17.5%)", "Matches")).toBe("—");
+    expect(shortDigitRejectReason("insufficient conditional data", "Matches")).toBe("—");
     expect(
       shortDigitRejectReason(
         "This contract isn't available right now (digit distribution unstable)",
         "Matches",
       ),
-    ).toBe("Matches unavailable for this digit — try another");
+    ).toBe("—");
     expect(shortDigitRejectReason("entry digit required for Matches", "Matches")).toBe("Pricing…");
   });
 
   it("shortDigitRejectReason never says Matches on Over/Under", () => {
-    expect(shortDigitRejectReason("insufficient conditional data", "Over")).toBe(
-      "Over/Under unavailable for this setup — try another digit or longer duration",
-    );
-    expect(shortDigitRejectReason("Over/Under needs at least 5 ticks", "Under")).toBe(
-      "Over/Under unavailable for this setup — try another digit or longer duration",
-    );
-    expect(shortDigitRejectReason("Under is temporarily unavailable on this market", "Under")).toBe(
-      "Over/Under unavailable for this setup — try another digit or longer duration",
-    );
-    expect(shortDigitRejectReason("win probability too high", "Over")).toBe(
-      "Over/Under unavailable for this setup — try another digit or longer duration",
-    );
+    expect(shortDigitRejectReason("insufficient conditional data", "Over")).toBe("—");
+    expect(shortDigitRejectReason("Over/Under needs at least 5 ticks", "Under")).toBe("Min 5 ticks");
+    expect(shortDigitRejectReason("Under is temporarily unavailable on this market", "Under")).toBe("—");
+    expect(shortDigitRejectReason("win probability too high", "Over")).toBe("—");
   });
 
   it("still allows Even/Odd on skewed ticks since they do not check digit stability", () => {

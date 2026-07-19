@@ -59,20 +59,23 @@ export const MIN_OVER_UNDER_TICKS = 5;
 export const MATCHES_FREQ_LO = 0.08;
 export const MATCHES_FREQ_HI = 0.12;
 
-/** Calm client copy when Matches is gated (freq / conditional / unavailable). */
-export const MATCHES_UNAVAILABLE_COPY =
-  "Matches unavailable for this digit — try another";
+/**
+ * Soft digit refusals no longer preach on the Buy button. The UI auto-hops
+ * Matches off busy digits and dims them in the grid; Buy just stays quiet.
+ * Kept as a short sentinel so disabled state stays truthy without a sermon.
+ */
+export const MATCHES_UNAVAILABLE_COPY = "—";
 
-/** Calm client copy when Over/Under is gated (conditional / duration / thin data). */
-export const OVER_UNDER_UNAVAILABLE_COPY =
-  "Over/Under unavailable for this setup — try another digit or longer duration";
+/** Quiet Over/Under soft-refusal sentinel (same idea as Matches). */
+export const OVER_UNDER_UNAVAILABLE_COPY = "—";
 
 /** True for soft availability refusals — never surface as a scary "Trade failed". */
 export function isCalmDigitAvailabilityReject(reason: string): boolean {
   return (
     /digit distribution/i.test(reason) ||
     /insufficient conditional/i.test(reason) ||
-    /isn't available right now/i.test(reason)
+    /isn't available right now/i.test(reason) ||
+    /temporarily unavailable/i.test(reason)
   );
 }
 
@@ -88,20 +91,17 @@ export function digitUnavailableCopy(side?: DigitSide): string {
 /** Compact UI copy for priceDigitServer / quote rejection reasons. */
 export function shortDigitRejectReason(reason: string, side?: DigitSide): string {
   const overUnder = isOverUnderSide(side);
+  // Soft availability → quiet sentinel; UI hops / dims instead of lecturing.
   if (isCalmDigitAvailabilityReject(reason)) return digitUnavailableCopy(side);
   if (/insufficient market/i.test(reason)) return "Not enough data";
   if (/entry digit required/i.test(reason)) return "Pricing…";
-  if (/temporarily unavailable/i.test(reason)) {
-    return overUnder ? OVER_UNDER_UNAVAILABLE_COPY : "Unavailable";
-  }
   if (/needs at least/i.test(reason)) {
-    return overUnder ? OVER_UNDER_UNAVAILABLE_COPY : "Duration too short";
+    return overUnder ? `Min ${MIN_OVER_UNDER_TICKS} ticks` : "Duration too short";
   }
   if (/priced ≤ 1×/i.test(reason)) return "Payout too low";
   if (/win (probability|chance)/i.test(reason)) {
-    if (overUnder) return OVER_UNDER_UNAVAILABLE_COPY;
-    if (side === "Matches") return MATCHES_UNAVAILABLE_COPY;
-    return "Unavailable";
+    if (overUnder || side === "Matches") return digitUnavailableCopy(side);
+    return "—";
   }
   if (/cannot win/i.test(reason)) return "Cannot win";
   return reason.length > 28 ? `${reason.slice(0, 27)}…` : reason;
