@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { StakeAmountField } from "@/components/binary/stake-amount-field";
+import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { useCurrency } from "@/lib/currency-context";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
-const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 const DIGITS = Array.from({ length: 10 }, (_, i) => i);
 
 // The "down"/bearish side of each family is rendered red, matching the picker.
@@ -121,22 +121,22 @@ export function DigitPanel({
             <div className={`${compactStakeDuration ? "mb-1 w-auto justify-center text-[10px]" : "w-[58px]"} flex shrink-0 items-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:justify-center sm:text-[13px]`}>
               Duration
             </div>
-            <div className={`min-w-0 flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setDuration(Math.max(3, duration - 1))}
-                className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[13px] sm:text-[18px]" />
-              </button>
-              <input
-                type="number" value={duration}
-                onChange={(e) => setDuration(Math.min(30, Math.max(3, Number(e.target.value) || 3)))}
-                className="w-full min-w-0 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
-                className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[13px] sm:text-[18px]" />
-              </button>
-              {!compactStakeDuration && <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>}
-            </div>
+            <DraftNumberField
+              value={duration}
+              onCommit={setDuration}
+              integer
+              step={1}
+              emptyValue={3}
+              clamp={(n) => Math.min(30, Math.max(3, Math.round(n)))}
+              decreaseLabel="Decrease duration"
+              increaseLabel="Increase duration"
+              inputClassName="text-[13px] sm:text-[15px]"
+              trailing={
+                !compactStakeDuration ? (
+                  <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>
+                ) : undefined
+              }
+            />
           </div>
 
           {/* Stake */}
@@ -497,7 +497,7 @@ export function ValuePickerSheet({
   };
   // Preset values stay KES; keypad drafts are in display units → back to KES.
   const commit = (vKes: number) => { onChange(clamp(vKes)); onClose(); };
-  const commitDraft = (shown: number) => commit(money ? Math.round(toKes(shown)) : shown);
+  const commitDraft = (shown: number) => commit(money ? toKes(shown) : shown);
   const fmtPreset = (kes: number) => (money ? convert(kes).toLocaleString(currency.locale, { maximumFractionDigits: currency.decimals }) : String(kes));
 
   return (

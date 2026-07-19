@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { StakeAmountField } from "@/components/binary/stake-amount-field";
+import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { ValuePickerSheet } from "./digit-panel";
 import { TakeProfitSheet } from "./accumulators-panel";
 import { useCurrency } from "@/lib/currency-context";
@@ -11,6 +12,10 @@ import { MULTIPLIERS, type LeveragedKindT, type LeveragedDirection } from "@/lib
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
+
+function clampOffset(v: number): number {
+  return Math.round((v || 0) * 100) / 100;
+}
 
 export type RunningLeveraged = {
   kind: LeveragedKindT;
@@ -114,19 +119,16 @@ export function LeveragedPanel({
         ) : (
           <div className={`${CARD} flex items-center gap-2 sm:block`}>
             <div className="flex w-[72px] shrink-0 items-center justify-center text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">Barrier distance</div>
-            <div className={`min-w-0 flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset - offsetStep) * 100) / 100)}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
-              </button>
-              <input type="number" value={barrierOffset}
-                onChange={(e) => setBarrierOffset(Number(e.target.value) || 0)}
-                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset + offsetStep) * 100) / 100)}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[14px] sm:text-[18px]" />
-              </button>
-            </div>
+            <DraftNumberField
+              value={barrierOffset}
+              onCommit={setBarrierOffset}
+              signed
+              step={offsetStep}
+              emptyValue={0}
+              clamp={clampOffset}
+              decreaseLabel="Decrease barrier distance"
+              increaseLabel="Increase barrier distance"
+            />
             <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
               <span className="font-bold text-slate-400">Payout / point</span>
               <span className="font-black text-white">{format(payoutPerPoint)}</span>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { StakeAmountField } from "@/components/binary/stake-amount-field";
+import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { useCurrency } from "@/lib/currency-context";
 import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
@@ -25,101 +26,6 @@ function clampBarrierOffset(v: number, minBarrierOffset: number, maxBarrierOffse
   if (capped === 0) return minBarrierOffset;
   if (Math.abs(capped) < minBarrierOffset) return capped < 0 ? -minBarrierOffset : minBarrierOffset;
   return capped;
-}
-
-/**
- * Freely editable signed barrier offset. Draft string while typing so number
- * inputs / min clamps don’t fight every keystroke or spot tick.
- */
-function BarrierOffsetField({
-  offset,
-  setOffset,
-  minOffset,
-  maxOffset,
-  step,
-}: {
-  offset: number;
-  setOffset: (v: number) => void;
-  minOffset: number;
-  maxOffset: number;
-  step: number;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const [focused, setFocused] = useState(false);
-
-  const committed = Number.isFinite(offset) ? String(Number(offset.toFixed(2))) : "";
-  const shown = draft !== null ? draft : committed;
-
-  useEffect(() => {
-    if (!focused) setDraft(null);
-  }, [offset, focused]);
-
-  function commit(raw: string) {
-    const cleaned = raw.trim();
-    if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-      setOffset(clampBarrierOffset(minOffset, minOffset, maxOffset));
-      setDraft(null);
-      return;
-    }
-    const n = Number(cleaned);
-    if (!Number.isFinite(n)) {
-      setOffset(clampBarrierOffset(minOffset, minOffset, maxOffset));
-      setDraft(null);
-      return;
-    }
-    setOffset(clampBarrierOffset(n, minOffset, maxOffset));
-    setDraft(null);
-  }
-
-  function nudge(dir: 1 | -1) {
-    const base = draft !== null && draft !== "" && draft !== "-" ? Number(draft) : offset;
-    const next = (Number.isFinite(base) ? base : 0) + dir * step;
-    setOffset(clampBarrierOffset(next, minOffset, maxOffset));
-    setDraft(null);
-  }
-
-  return (
-    <div className={`min-w-0 flex-1 ${FIELD}`}>
-      <button
-        type="button"
-        onClick={() => nudge(-1)}
-        className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10"
-        aria-label="Decrease barrier offset"
-      >
-        <Icon name="remove" className="text-[14px] sm:text-[18px]" />
-      </button>
-      <input
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        value={shown}
-        onFocus={() => {
-          setFocused(true);
-          setDraft("");
-        }}
-        onBlur={() => {
-          setFocused(false);
-          commit(draft ?? "");
-        }}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v === "" || OFFSET_DRAFT_RE.test(v)) setDraft(v);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-        className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none sm:text-[15px]"
-      />
-      <button
-        type="button"
-        onClick={() => nudge(1)}
-        className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10"
-        aria-label="Increase barrier offset"
-      >
-        <Icon name="add" className="text-[14px] sm:text-[18px]" />
-      </button>
-    </div>
-  );
 }
 
 // Rise/Fall (exit vs entry) and Higher/Lower (exit vs a chosen barrier).
@@ -238,20 +144,17 @@ export function DirectionalPanel({
         {/* Duration */}
         <div className={`${CARD} flex items-center gap-2 sm:block`}>
           <div className="flex w-[58px] shrink-0 items-center justify-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">Duration</div>
-          <div className={`min-w-0 flex-1 ${FIELD}`}>
-            <button type="button" onClick={() => setDuration(Math.max(minDuration, duration - 1))}
-              className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="remove" className="text-[14px] sm:text-[18px]" />
-            </button>
-            <input type="number" value={duration}
-              onChange={(e) => setDuration(Math.min(30, Math.max(minDuration, Number(e.target.value) || minDuration)))}
-              className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-            <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
-              className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="add" className="text-[14px] sm:text-[18px]" />
-            </button>
-            <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>
-          </div>
+          <DraftNumberField
+            value={duration}
+            onCommit={setDuration}
+            integer
+            step={1}
+            emptyValue={minDuration}
+            clamp={(n) => Math.min(30, Math.max(minDuration, Math.round(n)))}
+            decreaseLabel="Decrease duration"
+            increaseLabel="Increase duration"
+            trailing={<span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>}
+          />
         </div>
 
         {/* Barrier — Higher/Lower / Touch */}
@@ -260,12 +163,15 @@ export function DirectionalPanel({
             <div className="flex w-[72px] shrink-0 items-center justify-center text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">
               Barrier offset
             </div>
-            <BarrierOffsetField
-              offset={barrierOffset}
-              setOffset={setBarrierOffset}
-              minOffset={minBarrierOffset}
-              maxOffset={maxBarrierOffset}
+            <DraftNumberField
+              value={barrierOffset}
+              onCommit={setBarrierOffset}
+              signed
               step={offsetStep}
+              emptyValue={minBarrierOffset}
+              clamp={(n) => clampBarrierOffset(n, minBarrierOffset, maxBarrierOffset)}
+              decreaseLabel="Decrease barrier offset"
+              increaseLabel="Increase barrier offset"
             />
             <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
               <span className="font-bold text-slate-400">Barrier</span>
