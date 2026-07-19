@@ -57,6 +57,7 @@ import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
   MATCHES_FREQ_LO,
+  MIN_OVER_UNDER_TICKS,
   isCalmDigitAvailabilityReject,
   isCalmDirectionalReject,
   minBarrierOffsetPts,
@@ -702,7 +703,19 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
   const [autoMode, setAutoMode] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [copyEnabled, setCopyEnabled] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/copy/leaders")
+      .then((r) => r.json())
+      .then((d: { enabled?: boolean }) => {
+        if (!cancelled) setCopyEnabled(d.enabled === true);
+      })
+      .catch(() => { if (!cancelled) setCopyEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
   const [takeProfit, setTakeProfit] = useState(18);
@@ -738,6 +751,13 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
     }
   }, [family, targetDigit]);
   const [duration, setDuration] = useState(5);
+  // Over/Under short ticks were house-bleeding — silently lift to the server min
+  // instead of leaving Buy stuck on a sermon about "unavailable".
+  useEffect(() => {
+    if (family === "overUnder" && duration < MIN_OVER_UNDER_TICKS) {
+      setDuration(MIN_OVER_UNDER_TICKS);
+    }
+  }, [family, duration]);
   // Duration is canonical in ticks; for options contracts the user may pick in
   // seconds instead (Deriv-style). We keep the unit only for display/picker — the
   // contract is still placed in ticks (seconds → ticks via the market's tick speed).
@@ -2348,41 +2368,44 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     {streamError ?? "Fallback ticks"}
                   </span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setCopyOpen(true)}
-                  className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-slate-300 ring-1 ring-white/[0.08] transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  Copy
-                </button>
+                {copyEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setCopyOpen(true)}
+                    className="rounded-lg bg-violet-500/10 px-2 py-1 text-[10px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/15"
+                  >
+                    Copy
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="relative min-h-0 flex-1">
               {/* Mobile chrome sits in reserved top pad — no heavy fade over the plot. */}
-              <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-1 bg-[#151518] px-2 pb-2 pt-2 sm:hidden">
-                {/* Type chips scroll; All + Copy stay pinned so nothing hides off-screen. */}
-                <div className="flex items-center gap-1.5">
+              <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-1 bg-[#151518] px-2 pb-1.5 pt-1.5 sm:hidden">
+                {/* Compact type chips; All + Copy pinned. Color echoes market accents. */}
+                <div className="flex items-center gap-1">
                   <div className="relative min-w-0 flex-1">
-                    <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-5">
+                    <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-4">
                       {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
                         <button
                           key={t.id}
                           type="button"
                           onClick={() => selectTradeType(t.id)}
-                          className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
-                            tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
+                          className={`flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-black transition active:scale-[0.97] ${
+                            tradeType === t.id
+                              ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/40"
+                              : "bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.05]"
                           }`}
                         >
                           {t.label}
-                          {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                          {t.hot && <span className="animate-flame text-[10px] leading-none">🔥</span>}
                         </button>
                       ))}
                     </div>
-                    {/* Edge fade = “more types this way” without needing a scroll tutorial. */}
                     <div
                       aria-hidden
-                      className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-gradient-to-l from-[#151518] via-[#151518]/85 to-transparent"
+                      className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[#151518] via-[#151518]/90 to-transparent"
                     />
                   </div>
                   <button
@@ -2390,20 +2413,23 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                     onClick={() => setPickerOpen(true)}
                     title="View all trade types"
                     aria-label="View all trade types"
-                    className="flex shrink-0 items-center gap-0.5 rounded-full bg-sky-500/10 px-2.5 py-1.5 text-[12px] font-black text-sky-300 ring-1 ring-sky-400/25 transition active:scale-[0.97]"
+                    className="flex shrink-0 items-center gap-0.5 rounded-full bg-sky-500/12 px-2 py-1 text-[11px] font-black text-sky-300 ring-1 ring-sky-400/30 transition active:scale-[0.97]"
                   >
-                    <Icon name="apps" className="text-[15px]" />
+                    <Icon name="apps" className="text-[13px]" />
                     All
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setCopyOpen(true)}
-                    title="Copy trading"
-                    aria-label="Copy trading"
-                    className="shrink-0 rounded-full bg-white/[0.05] px-2.5 py-1.5 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.08] transition active:scale-[0.97] hover:text-white"
-                  >
-                    Copy
-                  </button>
+                  {copyEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setCopyOpen(true)}
+                      title="Copy trading"
+                      aria-label="Copy trading"
+                      className="flex shrink-0 items-center gap-0.5 rounded-full bg-violet-500/12 px-2 py-1 text-[11px] font-black text-violet-300 ring-1 ring-violet-400/30 transition active:scale-[0.97]"
+                    >
+                      <Icon name="groups" className="text-[13px]" />
+                      Copy
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 px-0.5">
                   <button
@@ -2448,7 +2474,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
               </div>
 
               {/* Chart below mobile header so the line never sits under a fade. */}
-              <div className="absolute inset-0 flex flex-col pt-[92px] sm:pt-0">
+              <div className="absolute inset-0 flex flex-col pt-[84px] sm:pt-0">
                 <div className="relative min-h-0 flex-1">
                   <LiveTickChart
                     points={livePoints}
@@ -2519,14 +2545,16 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
                   {label === "Auto" ? "⚡ Auto" : label}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => setCopyOpen(true)}
-                className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.07] hover:text-white"
-                title="Copy trading"
-              >
-                Copy
-              </button>
+              {copyEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setCopyOpen(true)}
+                  className="rounded-lg bg-violet-500/12 px-2.5 py-1.5 text-[11px] font-black text-violet-300 ring-1 ring-violet-400/25 transition hover:bg-violet-500/18"
+                  title="Copy trading"
+                >
+                  Copy
+                </button>
+              )}
             </div>
 
             {autoMode ? (

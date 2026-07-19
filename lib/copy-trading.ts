@@ -47,7 +47,9 @@ let flagCache: { enabled: boolean; expires: number } | null = null;
 
 export async function isCopyTradingEnabled(): Promise<boolean> {
   if (flagCache && flagCache.expires > Date.now()) return flagCache.enabled;
-  let enabled = true; // default on; ops can set flag to "false"
+  // Default OFF — enable per-env via system_settings.copy_trading_enabled=true
+  // so untested copy never ships live by accident.
+  let enabled = false;
   try {
     const row = await db.systemSetting.findUnique({
       where: { key: COPY_TRADING_FLAG },

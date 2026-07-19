@@ -6,6 +6,7 @@ import { StakeAmountField } from "@/components/binary/stake-amount-field";
 import { DraftNumberField } from "@/components/binary/draft-number-field";
 import { useCurrency } from "@/lib/currency-context";
 import { digitWinCondition, formatPayoutWithReturn } from "@/lib/binary/display";
+import { MIN_OVER_UNDER_TICKS } from "@/lib/binary/server-price";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -70,6 +71,14 @@ export function DigitPanel({
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
   const compactStakeDuration = family === "overUnder";
   const targetDigits = family === "overUnder" ? DIGITS.slice(1, 9) : DIGITS;
+  const minDuration = family === "overUnder" ? MIN_OVER_UNDER_TICKS : 3;
+  const durationPresets = family === "overUnder"
+    ? [5, 7, 10, 15, 30]
+    : [3, 5, 7, 10, 15, 30];
+
+  useEffect(() => {
+    if (duration < minDuration) setDuration(minDuration);
+  }, [duration, minDuration, setDuration]);
 
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button. We
   // track which side is armed locally; if the family (and thus `sides`) changes
@@ -99,6 +108,8 @@ export function DigitPanel({
         onArmSide={setArmedSide}
         stake={stake} setStake={setStake}
         duration={duration} setDuration={setDuration}
+        minDuration={minDuration}
+        durationPresets={durationPresets}
         targetDigit={targetDigit} setTargetDigit={setTargetDigit}
         lastDigit={lastDigit}
         stakePresets={stakePresets}
@@ -133,8 +144,8 @@ export function DigitPanel({
               onCommit={setDuration}
               integer
               step={1}
-              emptyValue={3}
-              clamp={(n) => Math.min(30, Math.max(3, Math.round(n)))}
+              emptyValue={minDuration}
+              clamp={(n) => Math.min(30, Math.max(minDuration, Math.round(n)))}
               decreaseLabel="Decrease duration"
               increaseLabel="Increase duration"
               inputClassName="text-[13px] sm:text-[15px]"
@@ -276,6 +287,7 @@ export function DigitPanel({
 function MobileDerivDigits({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration,
+  minDuration, durationPresets,
   targetDigit, setTargetDigit, lastDigit,
   stakePresets, minStake, needsTarget, targetVerb, targetDigits,
   payoutLabel, rejectReasonFor, lessAvailableDigits, format, winLine,
@@ -287,6 +299,8 @@ function MobileDerivDigits({
   onArmSide: (s: ContractSide) => void;
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
+  minDuration: number;
+  durationPresets: number[];
   targetDigit: number; setTargetDigit: (v: number) => void;
   lastDigit: number;
   stakePresets: number[];
@@ -433,7 +447,7 @@ function MobileDerivDigits({
       {picker === "duration" && (
         <ValuePickerSheet
           title="Duration" unit="ticks" value={duration}
-          presets={[3, 5, 7, 10, 15, 30]} min={3} max={30} integer
+          presets={durationPresets} min={minDuration} max={30} integer
           onChange={setDuration} onClose={() => setPicker(null)}
         />
       )}
