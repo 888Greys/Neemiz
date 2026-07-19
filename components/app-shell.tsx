@@ -1135,10 +1135,13 @@ const MENU_LANGUAGES: Array<{ label: string; sub: string }> = [
 ];
 
 function LanguageSheet({ current, onClose, onSelect }: { current: string; onClose: () => void; onSelect: (name: string) => void }) {
+  const binaryOnly = useIsBinarySurface();
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/65" onClick={onClose}>
       <div
-        className="flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className={`flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
+          binaryOnly ? "bg-black ring-1 ring-white/[0.08]" : "bg-[#1c1c1e]"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between px-5 py-3">
@@ -1163,7 +1166,11 @@ function LanguageSheet({ current, onClose, onSelect }: { current: string; onClos
                 disabled={soon}
                 onClick={() => { if (!soon) onSelect(l.label); }}
                 className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition ${
-                  active ? "bg-emerald-500 text-white" : soon ? "cursor-not-allowed" : "text-slate-200 hover:bg-white/[0.05]"
+                  active
+                    ? binaryOnly
+                      ? "bg-[var(--bok-lime,#b8ff2a)] text-[var(--bok-lime-ink,#0a0f00)]"
+                      : "bg-emerald-500 text-white"
+                    : soon ? "cursor-not-allowed" : "text-slate-200 hover:bg-white/[0.05]"
                 }`}
               >
                 <span className={soon ? "opacity-45" : ""}>
