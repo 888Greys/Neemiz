@@ -1,4 +1,5 @@
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { emailTheme } from "@/lib/email-theme";
 import { isBinarySurface, surfaceBrand } from "@/lib/product-surface";
 // Transactional email via Resend.
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
@@ -10,6 +11,10 @@ function mailBrand(): string {
   return process.env.MAIL_SENDER_NAME?.trim()
     || process.env.BREVO_SENDER_NAME?.trim()
     || surfaceBrand();
+}
+
+function theme() {
+  return emailTheme();
 }
 
 function supportEmail(): string {
@@ -30,11 +35,13 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
   if (!RESEND_API_KEY) {
     throw new Error("Resend send failed: RESEND_API_KEY is not configured");
   }
+  const fallbackSender = isBinarySurface() ? "noreply@binaryoptionske.com" : "noreply@nezeem.com";
+  const sender = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? fallbackSender;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${mailBrand()} <${SENDER_EMAIL}>`,
+      from: `${mailBrand()} <${sender}>`,
       to: [toName ? `${toName} <${to}>` : to],
       subject,
       html: htmlContent,
@@ -46,14 +53,15 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
 
 /** Admin login one-time code (email fallback when the authenticator is unavailable). */
 export async function sendAdminLoginCodeEmail(to: string, code: string) {
+  const brand = mailBrand();
   const html = `
     <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
-      <h2 style="margin:0 0 8px;color:#0f172a">Nezeem admin login code</h2>
+      <h2 style="margin:0 0 8px;color:#0f172a">${brand} admin login code</h2>
       <p style="color:#475569;margin:0 0 16px">Use this code to sign in to the admin panel. It expires in 10 minutes.</p>
       <div style="font-size:32px;font-weight:800;letter-spacing:8px;background:#f1f5f9;border-radius:12px;padding:18px;text-align:center;color:#0f172a">${escapeHtml(code)}</div>
       <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">If you didn't request this, ignore this email and consider rotating your admin credentials.</p>
     </div>`;
-  await sendEmail(to, "Admin", "Your Nezeem admin login code", html);
+  await sendEmail(to, "Admin", `Your ${brand} admin login code`, html);
 }
 
 export async function waitForEmailDelivery(
@@ -114,12 +122,13 @@ function detailBlock(title: string, rows: string) {
 function supportLine() {
   const email = supportEmail();
   const tg = supportTelegram();
+  const { accent } = theme();
   const tgBit = tg
-    ? ` or <a href="${tg}" style="color:#1687ff;text-decoration:none;">Telegram</a>`
+    ? ` or <a href="${tg}" style="color:${accent};text-decoration:none;">Telegram</a>`
     : "";
   return `<p style="margin:0 0 8px;font-size:14px;color:#667085;line-height:1.7;">
     If you need further assistance, please reach out to
-    <a href="mailto:${email}" style="color:#1687ff;text-decoration:none;">${email}</a>${tgBit}.
+    <a href="mailto:${email}" style="color:${accent};text-decoration:none;">${email}</a>${tgBit}.
   </p>`;
 }
 
@@ -134,10 +143,17 @@ function verificationCodeBlock(code: string) {
   </div>`;
 }
 
-function ctaButton(href: string, label: string, color = "#1687ff") {
+function ctaButton(href: string, label: string, color?: string) {
+  const t = theme();
+  const bg = color ?? t.buttonBg;
+  // Lime / light success buttons need dark ink; Nezeem blue/green and danger keep white.
+  const text =
+    bg === t.buttonBg || bg === t.success || bg === "#b8ff2a"
+      ? t.buttonText
+      : "#ffffff";
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
     <tr><td>
-      <a href="${href}" style="display:inline-block;background:${color};color:#ffffff;font-weight:700;font-size:14px;padding:12px 22px;border-radius:6px;text-decoration:none;">
+      <a href="${href}" style="display:inline-block;background:${bg};color:${text};font-weight:700;font-size:14px;padding:12px 22px;border-radius:6px;text-decoration:none;">
         ${label}
       </a>
     </td></tr>
@@ -146,6 +162,7 @@ function ctaButton(href: string, label: string, color = "#1687ff") {
 
 function emailWrapper(content: string, preheader?: string) {
   const brand = mailBrand();
+  const t = theme();
   const preview = preheader ?? `An update from your ${brand} account`;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -173,7 +190,7 @@ function emailWrapper(content: string, preheader?: string) {
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" class="email-shell" style="max-width:560px;width:100%;">
         <tr><td align="left" class="logo-pad" style="padding:0 0 18px;">
-          <a href="${APP_URL}" style="text-decoration:none;font-size:22px;font-weight:800;color:#17192a;">${brand}</a>
+          <a href="${APP_URL}" style="text-decoration:none;font-size:22px;font-weight:800;color:#17192a;">${t.logoHtml}</a>
         </td></tr>
         <tr><td class="email-pad" style="background:#ffffff;border:1px solid #e5e8ed;border-radius:8px;padding:32px 28px;">
           ${content}
@@ -182,7 +199,7 @@ function emailWrapper(content: string, preheader?: string) {
         </td></tr>
         <tr><td class="footer-pad" style="padding:18px 4px 0;text-align:left;">
           <p style="margin:0;font-size:12px;color:#8991a3;">
-            <a href="${APP_URL}" style="color:#1687ff;text-decoration:none;">nezeem.com</a>
+            <a href="${APP_URL}" style="color:${t.accent};text-decoration:none;">${t.siteLabel}</a>
             &nbsp;·&nbsp;
             <a href="${APP_URL}/support" style="color:#8991a3;text-decoration:none;">Support</a>
           </p>
@@ -218,7 +235,7 @@ function explorerUrl(network: string, txHash: string) {
 function txidLink(network: string, txHash: string) {
   const href = explorerUrl(network, txHash);
   const short = txHash.length > 24 ? `${txHash.slice(0, 20)}…` : txHash;
-  return `<a href="${href}" style="color:#1687ff;text-decoration:none;">${escapeHtml(short)}</a>`;
+  return `<a href="${href}" style="color:${theme().accent};text-decoration:none;">${escapeHtml(short)}</a>`;
 }
 
 function money(amount: number) {
@@ -240,9 +257,10 @@ export async function sendSuspiciousNumberAlertEmail(info: {
   autoKilled?: boolean;
   distinctUsers?: number;
 }) {
+  const brand = mailBrand();
   const subject = info.autoKilled
-    ? `🚨 Nezeem: withdrawals AUTO-DISABLED — +${info.msisdn}`
-    : `🚨 Nezeem: ${info.count} withdrawals to one number (+${info.msisdn})`;
+    ? `🚨 ${brand}: withdrawals AUTO-DISABLED — +${info.msisdn}`
+    : `🚨 ${brand}: ${info.count} withdrawals to one number (+${info.msisdn})`;
   const status = info.autoKilled
     ? "This crossed the auto-kill threshold, so all withdrawals have been automatically disabled."
     : info.held
@@ -251,7 +269,7 @@ export async function sendSuspiciousNumberAlertEmail(info: {
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
@@ -263,7 +281,7 @@ export async function sendSuspiciousNumberAlertEmail(info: {
         ${info.distinctUsers ? detailRow("Distinct users", String(info.distinctUsers)) : ""}
         ${detailRow("Status", status, true)}
       `)}
-      ${ctaButton(`${APP_URL}/admin/withdrawals`, "Review withdrawals →", "#dc2626")}
+      ${ctaButton(`${APP_URL}/admin/withdrawals`, "Review withdrawals →", theme().danger)}
     `, subject),
   );
 }
@@ -277,10 +295,11 @@ export async function sendAdminChangeAlertEmail(changes: {
   email: string; username: string | null; from: string; to: string;
   app: string | null; ip: string | null; at: string; allowlisted: boolean;
 }[]) {
+  const brand = mailBrand();
   const critical = changes.some((c) => c.to === "true" && !c.allowlisted);
   const subject = critical
-    ? "🚨 Nezeem: is_admin granted to a NON-allowlisted account"
-    : `Nezeem: admin flag changed (${changes.length})`;
+    ? `🚨 ${brand}: is_admin granted to a NON-allowlisted account`
+    : `${brand}: admin flag changed (${changes.length})`;
 
   const blocks = changes.map((c, i) => detailBlock(
     `Change ${i + 1} information is as follows:`,
@@ -295,7 +314,7 @@ export async function sendAdminChangeAlertEmail(changes: {
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
@@ -316,9 +335,10 @@ export async function sendRtpGuardAlertEmail(r: {
   userFlags: { userId: string; rtp: number; count: number }[];
   windowH: number;
 }) {
+  const brand = mailBrand();
   const subject = r.halted.length
-    ? `🚨 Nezeem: binary ${r.halted.map((h) => h.kind).join(", ")} AUTO-HALTED (RTP breach)`
-    : `Nezeem: ${r.userFlags.length} high-RTP player(s) flagged`;
+    ? `🚨 ${brand}: binary ${r.halted.map((h) => h.kind).join(", ")} AUTO-HALTED (RTP breach)`
+    : `${brand}: ${r.userFlags.length} high-RTP player(s) flagged`;
 
   const haltRows = r.halted.map((h, i) =>
     detailRow(h.kind, `${(h.rtp * 100).toFixed(0)}% RTP (auto-disabled)`, i === r.halted.length - 1 && r.userFlags.length === 0),
@@ -329,14 +349,14 @@ export async function sendRtpGuardAlertEmail(r: {
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
       ${statusParagraph(`Realized RTP over the last ${r.windowH}h triggered a risk alert (admin/test accounts excluded).`)}
       ${r.halted.length ? detailBlock("The auto-halted contracts are as follows:", haltRows) : ""}
       ${r.userFlags.length ? detailBlock("The flagged players are as follows:", userRows) : ""}
-      ${ctaButton(`${APP_URL}/admin/risk`, "Open risk panel →", "#dc2626")}
+      ${ctaButton(`${APP_URL}/admin/risk`, "Open risk panel →", theme().danger)}
     `, subject),
   );
 }
@@ -350,7 +370,8 @@ export async function sendReconMismatchEmail(
   findings: Array<{ username: string | null; balance: number; unexplained: number }>,
   total: number,
 ) {
-  const subject = `🚨 Nezeem: unexplained balances detected (${findings.length} account${findings.length === 1 ? "" : "s"})`;
+  const brand = mailBrand();
+  const subject = `🚨 ${brand}: unexplained balances detected (${findings.length} account${findings.length === 1 ? "" : "s"})`;
   const rows = findings.slice(0, 25).map((f, i, arr) =>
     detailRow(
       `@${escapeHtml(f.username ?? "?")}`,
@@ -361,13 +382,13 @@ export async function sendReconMismatchEmail(
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
       ${statusParagraph(`Daily reconciliation found ${findings.length} active account(s) holding ${money(total)} of balance the ledger cannot account for. Treat keys as potentially leaked.`)}
       ${detailBlock("The mismatched accounts are as follows:", rows)}
-      ${ctaButton(`${APP_URL}/admin/withdrawals`, "Open admin console →", "#dc2626")}
+      ${ctaButton(`${APP_URL}/admin/withdrawals`, "Open admin console →", theme().danger)}
     `, subject),
   );
 }
@@ -386,12 +407,13 @@ export async function sendBotSignupAlertEmail(report: {
   devices: Array<{ deviceHash: string; users: number }>;
   emailClusters: Array<{ email: string; count: number }>;
 }) {
+  const brand = mailBrand();
   const reasons: string[] = [];
   if (report.burst) reasons.push(`${report.totalSignups} signups in ${report.windowMinutes} min (threshold ${report.burstThreshold})`);
   if (report.clusters.length) reasons.push(`${report.clusters.length} tight time-cluster(s)`);
   if (report.devices.length) reasons.push(`${report.devices.length} shared-device group(s)`);
   if (report.emailClusters.length) reasons.push(`${report.emailClusters.length} email-alias group(s)`);
-  const subject = `🤖 Nezeem: possible bot signups — ${reasons.join(", ")}`;
+  const subject = `🤖 ${brand}: possible bot signups — ${reasons.join(", ")}`;
 
   const clusterRows = report.clusters.slice(0, 15).map((c, i, arr) =>
     detailRow(escapeHtml(c.at), `${c.count} accounts`, i === arr.length - 1),
@@ -405,7 +427,7 @@ export async function sendBotSignupAlertEmail(report: {
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
@@ -413,7 +435,7 @@ export async function sendBotSignupAlertEmail(report: {
       ${report.clusters.length ? detailBlock("The tight signup clusters are as follows:", clusterRows) : ""}
       ${report.devices.length ? detailBlock("The shared-device groups are as follows:", deviceRows) : ""}
       ${report.emailClusters.length ? detailBlock("The email-alias groups are as follows:", emailRows) : ""}
-      ${ctaButton(`${APP_URL}/admin/players`, "Review new accounts →", "#dc2626")}
+      ${ctaButton(`${APP_URL}/admin/players`, "Review new accounts →", theme().danger)}
     `, subject),
   );
 }
@@ -426,8 +448,9 @@ export async function sendBusinessMetricAlertEmail(
   alerts: Array<{ title: string; detail: string; link: string; severity: "warn" | "critical" }>,
 ) {
   if (alerts.length === 0) return;
+  const brand = mailBrand();
   const hasCritical = alerts.some((a) => a.severity === "critical");
-  const subject = `${hasCritical ? "🔴" : "🟠"} Nezeem health alert — ${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention`;
+  const subject = `${hasCritical ? "🔴" : "🟠"} ${brand} health alert — ${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention`;
   const rows = alerts.map((a, i) =>
     detailRow(
       `[${a.severity === "critical" ? "Critical" : "Warning"}] ${escapeHtml(a.title)}`,
@@ -438,13 +461,13 @@ export async function sendBusinessMetricAlertEmail(
 
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     subject,
     emailWrapper(`
       ${adminGreeting()}
       ${statusParagraph(`Automated health check flagged ${alerts.length} metric${alerts.length > 1 ? "s" : ""} on the money-movement spine.`)}
       ${detailBlock("The health alert information is as follows:", rows)}
-      ${ctaButton(`${APP_URL}/admin`, "Open admin console →", hasCritical ? "#dc2626" : "#1687ff")}
+      ${ctaButton(`${APP_URL}/admin`, "Open admin console →", hasCritical ? theme().danger : theme().buttonBg)}
     `, subject),
   );
 }
@@ -541,13 +564,14 @@ export async function sendEmailOtpCode(to: string, firstName: string, code: stri
 }
 
 export async function sendTestingNoticeEmail(to: string, firstName?: string) {
+  const brand = mailBrand();
   await sendEmail(
     to,
     firstName || "Trader",
-    "Important Notice — Nezeem is Still in Testing",
+    `Important Notice — ${brand} is Still in Testing`,
     emailWrapper(`
       ${traderGreeting(firstName)}
-      ${statusParagraph("Thank you for your interest in Nezeem and for making a deposit. The platform is still in testing before official launch.")}
+      ${statusParagraph(`Thank you for your interest in ${brand} and for making a deposit. The platform is still in testing before official launch.`)}
       ${detailBlock("The notice information is as follows:", `
         ${detailRow("Status", "Testing")}
         ${detailRow("Action required", "Do not place bets or play games yet")}
@@ -556,7 +580,7 @@ export async function sendTestingNoticeEmail(to: string, firstName?: string) {
       <p style="margin:0 0 16px;font-size:14px;color:#667085;line-height:1.7;">
         We will notify you as soon as the platform is open.
       </p>
-    `, "Nezeem is still in testing"),
+    `, `${brand} is still in testing`),
   );
 }
 
@@ -575,10 +599,11 @@ export async function sendGameResultEmail(
     href: string;
   },
 ) {
+  const brand = mailBrand();
   const won = opts.outcome === "WON";
   const voided = opts.outcome === "VOID";
   const subject = won
-    ? `You won ${CURRENCY_SYMBOL} ${Number(opts.payout ?? 0).toLocaleString(MONEY_LOCALE)} on Nezeem`
+    ? `You won ${CURRENCY_SYMBOL} ${Number(opts.payout ?? 0).toLocaleString(MONEY_LOCALE)} on ${brand}`
     : voided
       ? `${opts.game} bet refunded`
       : `${opts.game} bet result`;
@@ -610,9 +635,10 @@ export async function sendGameResultEmail(
 // ─── P2P Merchant ─────────────────────────────────────────────────────────────
 
 export async function sendMerchantApplicationEmail(applicantEmail: string, displayName: string) {
+  const brand = mailBrand();
   await sendEmail(
     ADMIN_EMAIL,
-    "Nezeem Admin",
+    `${brand} Admin`,
     `New Merchant Application — ${displayName}`,
     emailWrapper(`
       ${adminGreeting()}
@@ -627,18 +653,19 @@ export async function sendMerchantApplicationEmail(applicantEmail: string, displ
 }
 
 export async function sendKycApprovedEmail(to: string, displayName: string) {
+  const brand = mailBrand();
   await sendEmail(
     to,
     displayName,
     "Your Merchant Account is Approved",
     emailWrapper(`
       ${traderGreeting(displayName)}
-      ${statusParagraph("Your merchant application has been approved. You can now post buy and sell ads on Nezeem P2P.")}
+      ${statusParagraph(`Your merchant application has been approved. You can now post buy and sell ads on ${brand} P2P.`)}
       ${detailBlock("The merchant account information is as follows:", `
         ${detailRow("Status", "Approved")}
         ${detailRow("Access", "Post buy &amp; sell ads", true)}
       `)}
-      ${ctaButton(`${APP_URL}/p2p/merchant`, "Go to Merchant Center →", "#05b957")}
+      ${ctaButton(`${APP_URL}/p2p/merchant`, "Go to Merchant Center →", theme().success)}
     `, "Merchant account approved"),
   );
 }
@@ -694,7 +721,7 @@ export async function sendTradeCompletedEmail(
         ${detailRow(isReceiver ? "You paid" : "You received", `${escapeHtml(fiat)} ${fiatAmount.toLocaleString(MONEY_LOCALE)}`)}
         ${detailRow("Order ID", escapeHtml(orderId.slice(0, 16).toUpperCase()), true)}
       `)}
-      ${ctaButton(`${APP_URL}/p2p/order/${orderId}`, "View Order →", "#05b957")}
+      ${ctaButton(`${APP_URL}/p2p/order/${orderId}`, "View Order →", theme().success)}
     `, "P2P trade completed"),
   );
 }
@@ -713,6 +740,7 @@ export async function sendAdCreatedEmail(
     adId: string;
   },
 ) {
+  const brand = mailBrand();
   const { side, crypto, totalAmount, pricePerUnit, fiat, minLimit, maxLimit } = opts;
   const isSell = side === "SELL";
 
@@ -722,14 +750,14 @@ export async function sendAdCreatedEmail(
     `Your ${isSell ? "Sell" : "Buy"} ${crypto} Ad is Live`,
     emailWrapper(`
       ${traderGreeting(merchantName)}
-      ${statusParagraph(`Your ${isSell ? "Sell" : "Buy"} ${escapeHtml(crypto)} ad is now live on Nezeem P2P and visible to traders.`)}
+      ${statusParagraph(`Your ${isSell ? "Sell" : "Buy"} ${escapeHtml(crypto)} ad is now live on ${brand} P2P and visible to traders.`)}
       ${detailBlock("The ad information is as follows:", `
         ${detailRow("Side", isSell ? "Sell" : "Buy")}
         ${detailRow(`Total ${escapeHtml(crypto)}`, `${totalAmount.toFixed(6)} ${escapeHtml(crypto)}`)}
         ${detailRow(`Price per ${escapeHtml(crypto)}`, `${pricePerUnit.toLocaleString(MONEY_LOCALE)} ${escapeHtml(fiat)}`)}
         ${detailRow("Order Limit", `${escapeHtml(fiat)} ${minLimit.toLocaleString(MONEY_LOCALE)} – ${maxLimit.toLocaleString(MONEY_LOCALE)}`, true)}
       `)}
-      ${ctaButton(`${APP_URL}/p2p/merchant`, "View Merchant Center →", "#05b957")}
+      ${ctaButton(`${APP_URL}/p2p/merchant`, "View Merchant Center →", theme().success)}
     `, "P2P ad created"),
   );
 }
@@ -782,6 +810,7 @@ export async function sendP2PMessageEmail(
     hasImage: boolean;
   },
 ) {
+  const brand = mailBrand();
   const senderName = escapeHtml(opts.senderName);
   const subjectSender = opts.senderName.replace(/[\r\n]+/g, " ").trim() || "a trader";
   const message = escapeHtml(opts.message || (opts.hasImage ? "Sent an image" : "Sent you a message"));
@@ -789,7 +818,7 @@ export async function sendP2PMessageEmail(
   await sendEmail(
     to,
     recipientName,
-    `New message from ${subjectSender} on Nezeem P2P`,
+    `New message from ${subjectSender} on ${brand} P2P`,
     emailWrapper(`
       ${traderGreeting(recipientName)}
       ${statusParagraph(`${senderName} sent you a message on your P2P order.`)}
@@ -820,7 +849,11 @@ export async function sendP2POrderStatusEmail(
     actionLabel?: string;
   },
 ) {
-  const accent = opts.accent ?? "#1687ff";
+  const t = theme();
+  // Map legacy Nezeem hardcodes from callers onto the current surface theme.
+  let accent = opts.accent ?? t.buttonBg;
+  if (accent === "#1687ff" || accent === "#087cff") accent = t.buttonBg;
+  if (accent === "#05b957") accent = t.success;
   await sendEmail(
     to,
     recipientName,
