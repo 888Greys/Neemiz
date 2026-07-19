@@ -53,10 +53,19 @@ function clearStaleAuthCookies(request: NextRequest, response: NextResponse) {
 export default async function middleware(request: NextRequest) {
   const requestHost =
     request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const { pathname } = request.nextUrl;
+  const binarySurface = isBinarySurface({ host: requestHost });
+
+  // Nezeem: HTTP 307 `/` → `/dashboard` (replaces the old next.config redirect,
+  // which also hit BinaryKE and skipped the marketing page).
+  if (!binarySurface && (pathname === "/" || pathname === "")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
 
   // Binary-only brand (binaryoptionske.com): strip every non-binary product path.
-  if (isBinarySurface({ host: requestHost })) {
-    const { pathname } = request.nextUrl;
+  if (binarySurface) {
     // Static favicon.ico is still the Nezeem asset in the image — serve the
     // surface-aware generated /icon instead.
     if (pathname === "/favicon.ico") {
