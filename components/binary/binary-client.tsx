@@ -38,6 +38,7 @@ const BINARY_THEME: LiveChartTheme = {
 import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
+  applyServerBinaryDigits,
   mergeClosedPositions,
   toAccumulatorClosedPosition,
   toBinaryClosedPosition,
@@ -1235,13 +1236,24 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   // Real trades are settled by the server, which derives the exit digit from
   // the live Deriv feed (the client never gets to say whether it won). We just
   // reflect the authoritative result here.
-  const applyBinarySettled = useCallback((trade: BinaryTrade, data: { won: boolean; winAmount?: number; exitDigit: number }) => {
+  const applyBinarySettled = useCallback((trade: BinaryTrade, data: {
+    won: boolean;
+    winAmount?: number;
+    entryDigit?: number | null;
+    exitDigit: number;
+  }) => {
     if (settledIds.current.has(trade.id)) return;
     settledIds.current.add(trade.id);
     const won = data.won;
     const exitDigit = data.exitDigit;
+    // Prefer DB entry_digit from settle/Realtime — optimistic place used the
+    // client WS lastDigit, which can disagree with the server entry spot.
+    const settled = applyServerBinaryDigits(
+      { ...trade, exitDigit, status: won ? "won" as const : "lost" as const },
+      { entryDigit: data.entryDigit, exitDigit },
+    );
     setOpenTrades((cur) => cur.filter((t) => t.id !== trade.id));
-    setClosedTrades((cur) => [{ ...trade, exitDigit, status: won ? "won" as const : "lost" as const }, ...cur].slice(0, 20));
+    setClosedTrades((cur) => [settled, ...cur].slice(0, 20));
     if (won && data.winAmount) {
       setLiveBalance((b) => b + data.winAmount!);
       window.dispatchEvent(new Event("wallet-refresh"));
@@ -1269,7 +1281,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         body:    JSON.stringify({ tradeId: trade.id }),
       });
       const data = await res.json() as {
-        won?: boolean; winAmount?: number; exitDigit?: number; error?: string; pending?: boolean; alreadySettled?: boolean; status?: string;
+        won?: boolean; winAmount?: number; entryDigit?: number; exitDigit?: number; error?: string; pending?: boolean; alreadySettled?: boolean; status?: string;
       };
       if (!res.ok) {
         // 503 / not-ready: leave open; fast poll retries within settleBefore.
@@ -1279,6 +1291,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       applyBinarySettled(trade, {
         won: !!data.won,
         winAmount: data.winAmount,
+        entryDigit: data.entryDigit,
         exitDigit: data.exitDigit ?? 0,
       });
       return true;
@@ -1818,6 +1831,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         tradeId?: string;
         outcome?: string;
         winAmount?: number;
+        entryDigit?: number;
         exitDigit?: number;
         status?: string;
       } }) => {
@@ -1834,6 +1848,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         applyBinarySettled(trade, {
           won,
           winAmount: payload.winAmount,
+          entryDigit: payload.entryDigit,
           exitDigit: payload.exitDigit ?? 0,
         });
       })
@@ -1957,7 +1972,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             durationTicks: duration,
           }),
         });
-        const data = await res.json() as { tradeId?: string; payout?: number; error?: string };
+        const data = await res.json() as { tradeId?: string; payout?: number; entryDigit?: number; error?: string };
         if (!res.ok || !data.tradeId) {
           setLiveBalance(prevBalance);
           setOpenTrades(prevOpen);
@@ -1968,7 +1983,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         setOpenTrades((current) =>
           current.map((t) =>
             t.id === tempId
-              ? { ...t, id: data.tradeId!, payout: data.payout ?? t.payout }
+              ? applyServerBinaryDigits(
+                  { ...t, id: data.tradeId!, payout: data.payout ?? t.payout },
+                  { entryDigit: data.entryDigit },
+                )
               : t,
           ),
         );

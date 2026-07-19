@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyServerBinaryDigits,
   mergeClosedPositions,
   toAccumulatorClosedPosition,
   toBinaryClosedPosition,
@@ -82,5 +83,38 @@ describe("binary closed-position history", () => {
 
     expect(positions).toHaveLength(1);
     expect(positions[0].status).toBe("won");
+  });
+
+  it("prefers server entry/exit digits over optimistic client feed digits", () => {
+    // Live QA: client lastDigit was 0 at render; DB entry_digit was 4.
+    const optimistic = {
+      id: "cmrrgzr9g0001n70f5vey5vkg",
+      market: "1HZ10V",
+      side: "Odd" as const,
+      stake: 10,
+      payout: 19,
+      entryDigit: 0,
+      targetDigit: 0,
+      exitDigit: undefined as number | undefined,
+      status: "open" as const,
+    };
+
+    const afterPlace = applyServerBinaryDigits(optimistic, { entryDigit: 4 });
+    expect(afterPlace.entryDigit).toBe(4);
+
+    const afterSettle = applyServerBinaryDigits(
+      { ...afterPlace, status: "lost" as const },
+      { entryDigit: 4, exitDigit: 4 },
+    );
+    expect(afterSettle.entryDigit).toBe(4);
+    expect(afterSettle.exitDigit).toBe(4);
+
+    const closed = toBinaryClosedPosition({
+      ...afterSettle,
+      status: "LOST",
+      createdAt: "2026-07-19T07:00:00.000Z",
+      settledAt: "2026-07-19T07:00:05.000Z",
+    });
+    expect(closed.subtitle).toBe("1HZ10V · digit 4 → 4");
   });
 });

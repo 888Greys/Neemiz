@@ -170,6 +170,9 @@ export async function POST(req: Request) {
     return Response.json({
       tradeId: result.id,
       payout: payoutVal,
+      // Authoritative entry digit from the server entry spot — client WS digit
+      // can lag a tick and must not be kept as the open/closed history entry.
+      entryDigit,
       ...(proof ? { provablyFair: { commitment: proof.commitment, signature: proof.signature, clientSeed, nonce: proof.terms.nonce } } : {}),
     }, { status: 201 });
   } catch (err) {

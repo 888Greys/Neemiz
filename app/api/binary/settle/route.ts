@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     return Response.json({
       won,
       winAmount: won ? Number(trade.payout) : 0,
+      entryDigit: trade.entryDigit,
       exitDigit: trade.exitDigit ?? 0,
       status: trade.status,
       alreadySettled: true,
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
         return Response.json({
           won,
           winAmount: won ? Number(fresh.payout) : 0,
+          entryDigit: fresh.entryDigit,
           exitDigit: fresh.exitDigit ?? exitDigit,
           status: fresh.status,
           alreadySettled: true,
@@ -87,7 +89,13 @@ export async function POST(req: Request) {
     }
 
     const won = result.outcome === "won";
-    return Response.json({ won, winAmount: result.winAmount, exitDigit, status: won ? "WON" : "LOST" });
+    return Response.json({
+      won,
+      winAmount: result.winAmount,
+      entryDigit: trade.entryDigit,
+      exitDigit,
+      status: won ? "WON" : "LOST",
+    });
   } catch (err) {
     console.error("binary/settle error:", err);
     return Response.json({ error: "Settlement failed" }, { status: 500 });

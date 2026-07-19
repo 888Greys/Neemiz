@@ -39,6 +39,7 @@ async function settleBinaryDue(entry: DueEntry): Promise<"done" | "keep"> {
       tradeId: trade.id,
       outcome: result.outcome,
       winAmount: result.winAmount,
+      entryDigit: trade.entryDigit,
       exitDigit: result.exitDigit,
       status: won ? "WON" : "LOST",
     });

@@ -29,6 +29,21 @@ function wonFromStatus(status: ApiStatus, payout: number | null | undefined): Cl
   return "lost";
 }
 
+/** Prefer server-authoritative digits over optimistic client feed digits. */
+export function applyServerBinaryDigits<T extends { entryDigit: number; exitDigit?: number }>(
+  trade: T,
+  server: { entryDigit?: number | null; exitDigit?: number | null },
+): T {
+  const next = { ...trade };
+  if (Number.isInteger(server.entryDigit) && server.entryDigit! >= 0 && server.entryDigit! <= 9) {
+    next.entryDigit = server.entryDigit!;
+  }
+  if (Number.isInteger(server.exitDigit) && server.exitDigit! >= 0 && server.exitDigit! <= 9) {
+    next.exitDigit = server.exitDigit!;
+  }
+  return next;
+}
+
 export function toBinaryClosedPosition(input: {
   id: string;
   market: string;

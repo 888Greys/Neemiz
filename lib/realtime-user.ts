@@ -15,6 +15,7 @@ export type TradeSettledPayload = {
   tradeId: string;
   outcome: "won" | "lost" | "already";
   winAmount?: number;
+  entryDigit?: number;
   exitDigit?: number;
   exitSpot?: number;
   status: "WON" | "LOST" | "ALREADY";
