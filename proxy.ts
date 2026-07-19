@@ -71,7 +71,8 @@ export default async function middleware(request: NextRequest) {
       url.pathname = "/binary";
       return NextResponse.redirect(url);
     }
-    if (pathname === "/" || pathname === "" || pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    // Guests see marketing at `/`; only /dashboard is forced into the terminal.
+    if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
       const url = request.nextUrl.clone();
       url.pathname = "/binary";
       return NextResponse.redirect(url);
