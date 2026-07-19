@@ -83,6 +83,12 @@ model User {
   // Leveraged (Multipliers, Turbos)
   leveragedTrades LeveragedTrade[]
 
+  // Binary copy trading
+  copyLeaderProfile CopyLeaderProfile?
+  copyFollowsAsFollower CopyFollow[] @relation("CopyFollower")
+  copyFollowsAsLeader   CopyFollow[] @relation("CopyLeader")
+  copySignals           CopySignal[]
+
   // Passwordless sign-in passkeys (WebAuthn, self-managed — distinct from the
   // GoTrue MFA passkeys used for withdrawal step-up)
   passkeys Passkey[]
@@ -1052,6 +1058,122 @@ model LeveragedTrade {
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("leveraged_trades")
+}
+
+// ─── Binary copy trading ──────────────────────────────────────────────────────
+// Opt-in leader → follower mirrors of fixed-payout binary/directional trades.
+// Not a signals marketplace. Settlements stay on existing settle crons.
+
+enum CopyLeaderStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum CopyStakeMode {
+  FIXED
+  PERCENT_OF_LEADER
+}
+
+enum CopySignalStatus {
+  PENDING
+  PROCESSING
+  DONE
+}
+
+enum CopyFillStatus {
+  COPIED
+  SKIPPED
+  FAILED
+}
+
+model CopyLeaderProfile {
+  id          String           @id @default(cuid())
+  userId      String           @unique @map("user_id")
+  user        User             @relation(fields: [userId], references: [id])
+  displayName String?          @map("display_name")
+  bio         String?
+  isPublic    Boolean          @default(true) @map("is_public")
+  // Comma-separated family tokens, e.g. "binary:Even,binary:Odd,directional:RISE_FALL"
+  allowedFamilies String       @default("binary:Even,binary:Odd,directional:RISE_FALL") @map("allowed_families")
+  status      CopyLeaderStatus @default(PENDING)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  follows CopyFollow[]
+  signals CopySignal[]
+
+  @@index([status, isPublic])
+  @@map("copy_leader_profiles")
+}
+
+model CopyFollow {
+  id         String @id @default(cuid())
+  followerId String @map("follower_id")
+  follower   User   @relation("CopyFollower", fields: [followerId], references: [id])
+  leaderId   String @map("leader_id")
+  leader     User   @relation("CopyLeader", fields: [leaderId], references: [id])
+  leaderProfileId String @map("leader_profile_id")
+  leaderProfile   CopyLeaderProfile @relation(fields: [leaderProfileId], references: [id])
+
+  stakeMode      CopyStakeMode @default(FIXED) @map("stake_mode")
+  fixedStakeKes  Decimal       @default(129) @map("fixed_stake_kes") @db.Decimal(18, 2)
+  percent        Decimal       @default(100) @db.Decimal(8, 2) // % of leader stake when PERCENT_OF_LEADER
+  maxStakeKes    Decimal       @map("max_stake_kes") @db.Decimal(18, 2)
+  maxDailyLossKes Decimal      @map("max_daily_loss_kes") @db.Decimal(18, 2)
+  paused         Boolean       @default(false)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  fills CopyTradeLink[]
+
+  @@unique([followerId, leaderId])
+  @@index([leaderId, paused])
+  @@index([followerId])
+  @@map("copy_follows")
+}
+
+model CopySignal {
+  id            String           @id @default(cuid())
+  leaderId      String           @map("leader_id")
+  leader        User             @relation(fields: [leaderId], references: [id])
+  leaderProfileId String         @map("leader_profile_id")
+  leaderProfile CopyLeaderProfile @relation(fields: [leaderProfileId], references: [id])
+  game          String // "binary" | "directional"
+  leaderTradeId String           @map("leader_trade_id")
+  familyToken   String           @map("family_token") // e.g. binary:Even, directional:RISE_FALL
+  leaderStake   Decimal          @map("leader_stake") @db.Decimal(18, 2)
+  // Contract params snapshot for fail-closed re-pricing (JSON).
+  params        Json
+  status        CopySignalStatus @default(PENDING)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  fills CopyTradeLink[]
+
+  @@unique([game, leaderTradeId])
+  @@index([status, createdAt])
+  @@map("copy_signals")
+}
+
+model CopyTradeLink {
+  id               String         @id @default(cuid())
+  signalId         String         @map("signal_id")
+  signal           CopySignal     @relation(fields: [signalId], references: [id])
+  followId         String         @map("follow_id")
+  follow           CopyFollow     @relation(fields: [followId], references: [id])
+  followerId       String         @map("follower_id")
+  followerTradeId  String?        @map("follower_trade_id")
+  game             String // "binary" | "directional"
+  stake            Decimal?       @db.Decimal(18, 2)
+  status           CopyFillStatus
+  skipReason       String?        @map("skip_reason")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@unique([signalId, followId])
+  @@index([followerId, createdAt(sort: Desc)])
+  @@index([followerTradeId])
+  @@map("copy_trade_links")
 }
 
 // ─── System Settings ──────────────────────────────────────────────────────────

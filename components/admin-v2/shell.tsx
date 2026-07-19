@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { label: "Risk", icon: "warning", href: "/admin/new/risk" },
   { label: "Ops", icon: "analytics", href: "/admin/new/ops" },
   { label: "Binary sites", icon: "candlestick_chart", href: "/admin/new/binary-ke" },
+  { label: "Copy trading", icon: "content_copy", href: "/admin/new/copy-trading" },
 ];
 
 function navActive(pathname: string, href: string) {
