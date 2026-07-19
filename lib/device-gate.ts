@@ -22,9 +22,12 @@ export function isTorExit(req: Request): boolean {
 }
 
 export async function countUsersOnDevice(deviceHash: string): Promise<number> {
-  const rows = await db.loginDevice.groupBy({
-    by: ["userId"],
-    where: { deviceHash },
+  // Admins / ops testers don't consume the per-device slot — otherwise you
+  // can't switch between test accounts on one phone.
+  const rows = await db.loginDevice.findMany({
+    where: { deviceHash, user: { isAdmin: false } },
+    distinct: ["userId"],
+    select: { userId: true },
   });
   return rows.length;
 }
