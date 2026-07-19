@@ -2,19 +2,26 @@
 
 import { WalletClient } from "@/components/wallet-client";
 import { Icon } from "@/components/icon";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 
 type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 
 // Floating wallet — wraps the full wallet UI (deposit / withdraw / send /
 // history) in the same mobile bottom-sheet pattern as the Profile modal.
 export function WalletSheet({ onClose, initialTab = "home" }: { onClose: () => void; initialTab?: WalletTab }) {
+  const bok = useIsBinarySurface();
+
   return (
     <div
       className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[1.5rem] bg-[#151518] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-2xl lg:max-w-4xl"
+        className={`relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[1.5rem] shadow-2xl ring-1 sm:rounded-2xl lg:max-w-4xl ${
+          bok
+            ? "bok-wallet-sheet bg-black ring-white/[0.08]"
+            : "bg-[#151518] ring-white/[0.08]"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/15 sm:hidden" />

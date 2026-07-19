@@ -165,6 +165,53 @@ html[data-surface="binary"] .bok-avatar-fallback {
   color: var(--bok-lime-ink) !important;
 }
 
+/* Design-token primary (Button) + mint finance CTAs → lime/yellow */
+html[data-surface="binary"] .bg-primary {
+  background: var(--bok-cta) !important;
+  color: var(--bok-lime-ink) !important;
+  box-shadow: none !important;
+}
+
+html[data-surface="binary"] .hover\:bg-primary-container:hover {
+  background: var(--bok-cta) !important;
+  color: var(--bok-lime-ink) !important;
+  filter: brightness(1.05);
+}
+
+html[data-surface="binary"] .text-on-primary {
+  color: var(--bok-lime-ink) !important;
+}
+
+html[data-surface="binary"] .shadow-primary\/25 {
+  --tw-shadow-color: rgba(184, 255, 42, 0.22) !important;
+}
+
+html[data-surface="binary"] .bg-\[\#05b957\],
+html[data-surface="binary"] .hover\:bg-\[\#07cc63\]:hover {
+  background: var(--bok-cta) !important;
+  color: var(--bok-lime-ink) !important;
+  box-shadow: none !important;
+}
+
+html[data-surface="binary"] .text-\[\#05b957\] {
+  color: var(--bok-lime) !important;
+}
+
+html[data-surface="binary"] .focus-within\:ring-\[\#05b957\]\/50:focus-within {
+  --tw-ring-color: rgba(184, 255, 42, 0.45) !important;
+}
+
+html[data-surface="binary"] .bok-wallet,
+html[data-surface="binary"] .bok-wallet-sheet,
+html[data-surface="binary"] .bok-mobile-drawer {
+  background: var(--bok-bg) !important;
+}
+
+html[data-surface="binary"] .bok-wallet .bg-\[\#151518\],
+html[data-surface="binary"] .bok-wallet-sheet .bg-\[\#151518\] {
+  background: var(--bok-bg) !important;
+}
+
 /* ── App shell header: flush bar (no floating Nezeem pill) ───────── */
 html[data-surface="binary"] header.bok-shell-header {
   left: 0 !important;
