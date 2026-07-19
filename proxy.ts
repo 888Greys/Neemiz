@@ -167,6 +167,13 @@ export const config = {
     // Binary-surface product gates (no-op on Nezeem when PRODUCT_SURFACE≠binary)
     "/",
     "/dashboard/:path*",
+    "/login",
+    "/sign-in",
+    "/sign-in/:path*",
+    "/sign-up",
+    "/sign-up/:path*",
+    "/terms",
+    "/privacy",
     "/sports/:path*",
     "/p2p/:path*",
     "/aviator/:path*",
