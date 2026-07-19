@@ -307,7 +307,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              {binaryOnly && (
+              {/* Immersive binary has no bottom dock — Markets / Positions live in the top pill. */}
+              {(binaryOnly || immersive) && (
                 <>
                   <Link
                     href="/binary?panel=markets"
@@ -377,7 +378,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             </div>
           ) : (
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
-              {binaryOnly && (
+              {(binaryOnly || immersive) && (
                 <Link
                   href="/binary?panel=markets"
                   prefetch={false}
@@ -816,9 +817,19 @@ function MobileMenuDrawer({
         { label: "Lucky Spin", href: "/lucky-spin" },
       ];
 
+  const onBinary = pathname.startsWith("/binary");
   const shortcuts = binaryOnly
-    ? []
-    : [{ label: "My Bets", icon: "receipt_long", href: "/my-bets" }];
+    ? [
+        { label: "Markets", icon: "candlestick_chart", href: "/binary?panel=markets" },
+        { label: "Positions", icon: "schedule", href: "/binary?panel=positions" },
+      ]
+    : onBinary
+      ? [
+          { label: "Markets", icon: "candlestick_chart", href: "/binary?panel=markets" },
+          { label: "Positions", icon: "schedule", href: "/binary?panel=positions" },
+          { label: "My Bets", icon: "receipt_long", href: "/my-bets" },
+        ]
+      : [{ label: "My Bets", icon: "receipt_long", href: "/my-bets" }];
 
   const term = q.trim().toLowerCase();
   const filteredExplore = term
