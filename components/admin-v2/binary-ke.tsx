@@ -7,6 +7,8 @@ import {
   type SisterBinaryBrand,
 } from "@/lib/sister-binary-brands";
 
+type Period = "today" | "yesterday";
+
 type Summary = {
   users: number;
   depositsToday: { count: number; amount: number };
@@ -45,6 +47,7 @@ type Payload = {
   configured: boolean;
   brand?: string;
   siteUrl?: string;
+  period?: string;
   asOf?: string;
   dayStartEAT?: string;
   summary?: Summary;
@@ -66,18 +69,21 @@ function statusTone(status: string) {
   return "text-[#c2c6d6]";
 }
 
+const LIVE_BRAND_IDS = ["binaryoptionske", "moneybinaryke"];
+
 export function AdminV2BinaryKe() {
   const [selectedId, setSelectedId] = useState(SISTER_BINARY_BRANDS[0]!.id);
+  const [period, setPeriod] = useState<Period>("today");
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   const selected = SISTER_BINARY_BRANDS.find((b) => b.id === selectedId) ?? SISTER_BINARY_BRANDS[0]!;
   const siteUrl = sisterBinarySiteUrl(selected);
+  const isLive = LIVE_BRAND_IDS.includes(selected.id);
 
   const load = useCallback(async () => {
-    // Metrics API is wired for BinaryOptionsKE today; other slots are labels until live.
-    if (selected.status !== "live" || selected.id !== "binaryoptionske") {
+    if (!isLive) {
       setData(null);
       setErr("");
       setLoading(false);
@@ -86,7 +92,7 @@ export function AdminV2BinaryKe() {
     setLoading(true);
     setErr("");
     try {
-      const res = await fetch("/api/admin/binary-ke", { cache: "no-store" });
+      const res = await fetch(`/api/admin/binary-ke?brand=${selected.id}&period=${period}`, { cache: "no-store" });
       const json = (await res.json()) as Payload;
       if (!res.ok && !json.configured) {
         setData(json);
@@ -101,14 +107,14 @@ export function AdminV2BinaryKe() {
     } finally {
       setLoading(false);
     }
-  }, [selected.id, selected.status]);
+  }, [selected.id, period, isLive]);
 
   useEffect(() => {
     void load();
-    if (selected.status !== "live") return;
+    if (!isLive) return;
     const id = setInterval(() => void load(), 60_000);
     return () => clearInterval(id);
-  }, [load, selected.status]);
+  }, [load, isLive]);
 
   const s = data?.summary;
 
@@ -123,17 +129,35 @@ export function AdminV2BinaryKe() {
             Binary brands
           </h2>
           <p className="mt-1 text-[13px] text-[#8c909f]">
-            Four binary-only sites — pick one to view today’s money and trades
+            Four binary-only sites — pick one and a time window to view money and trades
           </p>
         </div>
-        {selected.status === "live" ? (
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded border border-[#424754] bg-[#2a292a] px-3 py-1.5 text-[12px] font-semibold text-[#c2c6d6] hover:bg-[#353436]"
-          >
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
+        {isLive ? (
+          <div className="flex items-center gap-2">
+            <div className="flex rounded border border-[#424754] bg-[#2a292a] overflow-hidden">
+              {(["today", "yesterday"] as Period[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 text-[12px] font-semibold transition ${
+                    period === p
+                      ? "bg-[#3a4a5f]/60 text-[#e5e2e3]"
+                      : "text-[#8c909f] hover:text-[#c2c6d6]"
+                  }`}
+                >
+                  {p === "today" ? "Today" : "Yesterday"}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="rounded border border-[#424754] bg-[#2a292a] px-3 py-1.5 text-[12px] font-semibold text-[#c2c6d6] hover:bg-[#353436]"
+            >
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -171,9 +195,14 @@ export function AdminV2BinaryKe() {
         >
           {selected.status === "live" ? "Live" : "Planned"}
         </span>
+        {data?.period ? (
+          <span className="rounded bg-[#3a4a5f]/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#adc6ff]">
+            {data.period === "yesterday" ? "Yesterday" : "Today"}
+          </span>
+        ) : null}
       </div>
 
-      {selected.status !== "live" ? (
+      {!isLive ? (
         <p className="rounded border border-[#424754] bg-[#2a292a] px-4 py-3 text-[13px] text-[#8c909f]">
           This slot is reserved for the next binary-only domain. Metrics will show here once it is live.
         </p>
@@ -185,7 +214,7 @@ export function AdminV2BinaryKe() {
         </div>
       ) : null}
 
-      {!s && !loading && selected.status === "live" ? (
+      {!s && !loading && isLive ? (
         <p className="text-[13px] text-[#8c909f]">No metrics yet for this site.</p>
       ) : null}
 
@@ -194,13 +223,13 @@ export function AdminV2BinaryKe() {
           <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
               { label: "Users", value: String(s.users) },
-              { label: "Deposits today", value: `${kes(s.depositsToday.amount)} (${s.depositsToday.count})` },
-              { label: "Net cash today", value: kes(s.netCashToday) },
-              { label: "Binary GGR today", value: kes(s.ggrToday) },
-              { label: "Staked today", value: `${kes(s.tradesToday.staked)} (${s.tradesToday.count})` },
-              { label: "Paid wins today", value: `${kes(s.winsToday.paidOut)} (${s.winsToday.count})` },
+              { label: "Deposits", value: `${kes(s.depositsToday.amount)} (${s.depositsToday.count})` },
+              { label: "Net cash", value: kes(s.netCashToday) },
+              { label: "GGR", value: kes(s.ggrToday) },
+              { label: "Staked", value: `${kes(s.tradesToday.staked)} (${s.tradesToday.count})` },
+              { label: "Paid wins", value: `${kes(s.winsToday.paidOut)} (${s.winsToday.count})` },
               { label: "Pending deposits", value: String(s.pendingDeposits) },
-              { label: "Failed deposits today", value: String(s.failedDepositsToday) },
+              { label: "Failed deposits", value: String(s.failedDepositsToday) },
             ].map((card) => (
               <div key={card.label} className="rounded border border-[#424754] bg-[#2a292a] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8c909f]">{card.label}</p>
@@ -211,7 +240,9 @@ export function AdminV2BinaryKe() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <section>
-              <h3 className="mb-2 text-[14px] font-semibold text-[#e5e2e3]">Deposits today</h3>
+              <h3 className="mb-2 text-[14px] font-semibold text-[#e5e2e3]">
+                Deposits {data?.period === "yesterday" ? "(yesterday)" : "(today)"}
+              </h3>
               <div className="overflow-x-auto rounded border border-[#424754]">
                 <table className="w-full text-left text-[12px]">
                   <thead className="bg-[#201f20] text-[#8c909f]">
@@ -225,7 +256,7 @@ export function AdminV2BinaryKe() {
                   <tbody>
                     {(data?.recentDeposits ?? []).length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-3 py-4 text-[#8c909f]">No deposits yet today</td>
+                        <td colSpan={4} className="px-3 py-4 text-[#8c909f]">No deposits for this period</td>
                       </tr>
                     ) : (
                       (data?.recentDeposits ?? []).map((row) => (
@@ -246,7 +277,9 @@ export function AdminV2BinaryKe() {
             </section>
 
             <section>
-              <h3 className="mb-2 text-[14px] font-semibold text-[#e5e2e3]">Trades today</h3>
+              <h3 className="mb-2 text-[14px] font-semibold text-[#e5e2e3]">
+                Trades {data?.period === "yesterday" ? "(yesterday)" : "(today)"}
+              </h3>
               <div className="overflow-x-auto rounded border border-[#424754]">
                 <table className="w-full text-left text-[12px]">
                   <thead className="bg-[#201f20] text-[#8c909f]">
@@ -260,7 +293,7 @@ export function AdminV2BinaryKe() {
                   <tbody>
                     {(data?.recentTrades ?? []).length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-3 py-4 text-[#8c909f]">No trades yet today</td>
+                        <td colSpan={4} className="px-3 py-4 text-[#8c909f]">No trades for this period</td>
                       </tr>
                     ) : (
                       (data?.recentTrades ?? []).map((row) => (
@@ -282,7 +315,8 @@ export function AdminV2BinaryKe() {
 
           {data?.asOf ? (
             <p className="mt-4 text-[11px] text-[#8c909f]">
-              Day window EAT from {new Date(data.dayStartEAT!).toLocaleString("en-KE")} · refreshed{" "}
+              {data.period === "yesterday" ? "Yesterday" : "Today"} EAT window from{" "}
+              {new Date(data.dayStartEAT!).toLocaleString("en-KE")} · refreshed{" "}
               {new Date(data.asOf).toLocaleString("en-KE")}
             </p>
           ) : null}

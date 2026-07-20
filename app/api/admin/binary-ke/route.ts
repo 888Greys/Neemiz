@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isOwnerEmail } from "@/lib/admin-allowlist";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { bokDb } from "@/lib/db-bok";
-import { TransactionStatus, TransactionType } from "@prisma/client";
+import { mbkDb } from "@/lib/db-mbk";
+import { TransactionStatus, TransactionType, PrismaClient } from "@prisma/client";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -16,25 +17,47 @@ async function requireAdmin() {
 }
 
 function dayStartEAT(now = new Date()) {
-  // EAT = UTC+3
   const utc = now.getTime() + now.getTimezoneOffset() * 60_000;
   const eat = new Date(utc + 3 * 3600_000);
   eat.setHours(0, 0, 0, 0);
   return new Date(eat.getTime() - 3 * 3600_000);
 }
 
-export async function GET() {
+type Period = "today" | "yesterday";
+
+function periodRange(period: Period) {
+  const start = dayStartEAT();
+  if (period === "yesterday") {
+    start.setDate(start.getDate() - 1);
+  }
+  const end = new Date(start.getTime() + 24 * 3600_000);
+  return { start, end };
+}
+
+function getClient(brand: string): { client: PrismaClient | null; label: string; siteUrl: string } {
+  if (brand === "moneybinaryke") {
+    return { client: mbkDb(), label: "MoneyBinary", siteUrl: "https://moneybinaryke.com" };
+  }
+  return { client: bokDb(), label: "BinaryOptionsKE", siteUrl: "https://binaryoptionske.com" };
+}
+
+export async function GET(request: Request) {
   if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const client = bokDb();
+  const { searchParams } = new URL(request.url);
+  const brand = searchParams.get("brand") || "binaryoptionske";
+  const period = (searchParams.get("period") || "today") as Period;
+
+  const { client, label, siteUrl } = getClient(brand);
   if (!client) {
     return Response.json({
       configured: false,
-      error: "BINARYOPTIONSKE_DATABASE_URL is not set on Nezeem runtime.",
+      brand: label,
+      error: `Database not configured for ${label}.`,
     }, { status: 503 });
   }
 
-  const since = dayStartEAT();
+  const { start: since, end: until } = periodRange(period);
   const [
     users,
     depositAgg,
@@ -48,12 +71,12 @@ export async function GET() {
   ] = await Promise.all([
     client.user.count(),
     client.transaction.aggregate({
-      where: { type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, provider: "lipaharaka", createdAt: { gte: since } },
+      where: { type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, provider: "lipaharaka", createdAt: { gte: since, lt: until } },
       _sum: { amount: true },
       _count: true,
     }),
     client.transaction.aggregate({
-      where: { type: TransactionType.WITHDRAWAL, status: TransactionStatus.COMPLETED, provider: "lipaharaka", createdAt: { gte: since } },
+      where: { type: TransactionType.WITHDRAWAL, status: TransactionStatus.COMPLETED, provider: "lipaharaka", createdAt: { gte: since, lt: until } },
       _sum: { amount: true },
       _count: true,
     }),
@@ -61,26 +84,26 @@ export async function GET() {
       where: { type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, provider: "lipaharaka" },
     }),
     client.transaction.count({
-      where: { type: TransactionType.DEPOSIT, status: TransactionStatus.FAILED, provider: "lipaharaka", createdAt: { gte: since } },
+      where: { type: TransactionType.DEPOSIT, status: TransactionStatus.FAILED, provider: "lipaharaka", createdAt: { gte: since, lt: until } },
     }),
     client.binaryTrade.aggregate({
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: since, lt: until } },
       _sum: { stake: true },
       _count: true,
     }),
     client.binaryTrade.aggregate({
-      where: { createdAt: { gte: since }, status: "WON" },
+      where: { createdAt: { gte: since, lt: until }, status: "WON" },
       _sum: { payout: true },
       _count: true,
     }),
     client.transaction.findMany({
-      where: { type: TransactionType.DEPOSIT, provider: "lipaharaka", createdAt: { gte: since } },
+      where: { type: TransactionType.DEPOSIT, provider: "lipaharaka", createdAt: { gte: since, lt: until } },
       include: { user: { select: { username: true, email: true } } },
       orderBy: { createdAt: "desc" },
       take: 25,
     }),
     client.binaryTrade.findMany({
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: since, lt: until } },
       include: { user: { select: { username: true, email: true } } },
       orderBy: { createdAt: "desc" },
       take: 25,
@@ -94,8 +117,9 @@ export async function GET() {
 
   return Response.json({
     configured: true,
-    brand: "BinaryOptionsKE",
-    siteUrl: "https://binaryoptionske.com",
+    brand: label,
+    siteUrl,
+    period,
     asOf: new Date().toISOString(),
     dayStartEAT: since.toISOString(),
     summary: {
