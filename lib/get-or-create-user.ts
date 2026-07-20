@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { generateUniqueUsername } from "@/lib/user-identity";
+import { isPhoneAuthEmail } from "@/lib/product-surface";
 
 type UserData = {
   email?: string | null;
@@ -47,11 +48,7 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
   // Retry a few times, narrowing the data each pass, so this never 500s.
   let email = data?.email ?? null;
   let phone = data?.phone ?? null;
-  if (
-    !phone &&
-    email &&
-    (email.endsWith("@phone.nezeem.com") || email.endsWith("@phone.binaryoptionske.com"))
-  ) {
+  if (!phone && email && isPhoneAuthEmail(email)) {
     phone = email.split("@")[0];
   }
 

@@ -19,10 +19,10 @@ export const SISTER_BINARY_BRANDS: SisterBinaryBrand[] = [
     status: "live",
   },
   {
-    id: "binary-site-2",
-    name: "Binary site 2",
-    domain: null,
-    status: "planned",
+    id: "moneybinaryke",
+    name: "MoneyBinary",
+    domain: "moneybinaryke.com",
+    status: "live",
   },
   {
     id: "binary-site-3",

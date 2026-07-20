@@ -1,13 +1,15 @@
 /**
  * Product surface — lets one Next.js image serve Nezeem (full casino) OR a
- * Binary-only brand (binaryoptionske.com) with a separate DATABASE_URL.
+ * Binary-only brand (binaryoptionske.com, moneybinaryke.com, etc.) with a
+ * separate DATABASE_URL.
  *
  * Least-overload architecture:
  *   • same Postgres host, separate database (wallets never mix)
  *   • same self-hosted Supabase Auth/Kong (no second Auth stack)
- *   • second app container only (no second Supabase compose)
+ *   • separate app containers (no second Supabase compose)
  *
- * Set PRODUCT_SURFACE=binary on the Binary container.
+ * Set PRODUCT_SURFACE=binary on the Binary container. Brand is derived from
+ * NEXT_PUBLIC_BRAND_NAME / NEXT_PUBLIC_APP_URL.
  */
 
 export type ProductSurface = "full" | "binary";
@@ -27,10 +29,25 @@ function envSurface(): string | undefined {
   return undefined;
 }
 
+export function binaryAppHostname(): string | null {
+  const url = process.env["NEXT_PUBLIC_APP_URL"] || process.env["APP_URL"];
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 function hostLooksBinary(host: string | null | undefined): boolean {
   if (!host) return false;
   const h = host.split(":")[0]?.toLowerCase() ?? "";
-  return h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com");
+  const appHost = binaryAppHostname();
+  if (appHost && (h === appHost || h.endsWith("." + appHost))) return true;
+  // Legacy: detect any known binary domain as fallback
+  if (h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com")) return true;
+  if (h === "moneybinaryke.com" || h.endsWith(".moneybinaryke.com")) return true;
+  return false;
 }
 
 export function productSurface(opts?: ProductSurfaceOpts): ProductSurface {
@@ -61,10 +78,13 @@ export function surfaceBrand(opts?: ProductSurfaceOpts): string {
  * provider). Keep brand-specific so Binary accounts never look like Nezeem.
  */
 export function phoneAuthEmailDomain(): string {
+  const override = process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"]?.trim();
+  if (override) return override;
+
   if (isBinarySurface()) {
-    return (
-      process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"]?.trim() || "phone.binaryoptionske.com"
-    );
+    const host = binaryAppHostname();
+    if (host) return "phone." + host;
+    return "phone.binaryoptionske.com";
   }
   return "phone.nezeem.com";
 }
@@ -77,12 +97,18 @@ export function phoneAuthEmail(msisdnDigits: string): string {
 
 export function isPhoneAuthEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  return (
-    email.endsWith("@phone.nezeem.com") ||
-    email.endsWith("@phone.binaryoptionske.com") ||
-    (!!process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"] &&
-      email.endsWith(`@${process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"].trim()}`))
-  );
+  if (email.endsWith("@phone.nezeem.com")) return true;
+
+  const override = process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"]?.trim();
+  if (override && email.endsWith(`@${override}`)) return true;
+
+  const host = binaryAppHostname();
+  if (host && email.endsWith(`@phone.${host}`)) return true;
+
+  // Legacy: hardcoded binary brands
+  if (email.endsWith("@phone.binaryoptionske.com") || email.endsWith("@phone.moneybinaryke.com")) return true;
+
+  return false;
 }
 
 /**

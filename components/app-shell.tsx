@@ -22,6 +22,7 @@ import { PhonePromptModal } from "@/components/phone-prompt-modal";
 import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recents";
 import { COMPANY } from "@/lib/company";
 import { useIsBinarySurface } from "@/lib/site-config-context";
+import { isPhoneAuthEmail } from "@/lib/product-surface";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useCurrency } from "@/lib/currency-context";
 import { BalanceVisibilityProvider, useBalanceVisibility } from "@/lib/balance-visibility";
@@ -116,8 +117,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       const hasPhoneInAuth = !!(
         user.phone
         || user.user_metadata?.phone_number
-        || user.email?.endsWith("@phone.nezeem.com")
-        || user.email?.endsWith("@phone.binaryoptionske.com")
+        || (user.email && isPhoneAuthEmail(user.email))
       );
       if (hasPhoneInAuth) {
         setMissingPhone(false);

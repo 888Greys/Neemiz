@@ -3,7 +3,7 @@
  * Binary-only surfaces (PRODUCT_SURFACE=binary) override brand/support via env
  * so binaryoptionske.com never shows Nezeem chrome.
  */
-import { isBinarySurface, surfaceBrand } from "@/lib/product-surface";
+import { isBinarySurface, surfaceBrand, binaryAppHostname } from "@/lib/product-surface";
 
 const NEZEEM = {
   brand: "Nezeem",
@@ -31,7 +31,7 @@ const NEZEEM = {
 
 function binaryCompany() {
   const brand = surfaceBrand();
-  const support = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? `support@binaryoptionske.com`).trim();
+  const support = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? `support@${binaryAppHostname() ?? "binaryoptionske.com"}`).trim();
   return {
     brand,
     legalName: (process.env.NEXT_PUBLIC_LEGAL_NAME ?? brand).trim() || brand,

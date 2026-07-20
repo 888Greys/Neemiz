@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 /**
  * Resolve the public origin for post-OAuth redirects.
  * NEXT_PUBLIC_APP_URL is inlined at Docker build time (usually Nezeem), so on
- * binaryoptionske.com we must prefer X-Forwarded-Host / Host, then runtime
+ * binary brand domains we must prefer X-Forwarded-Host / Host, then runtime
  * APP_URL / PRODUCT_SURFACE — never the baked Nezeem public URL.
  */
 function publicAppOrigin(request: Request): { appUrl: string; isBinaryHost: boolean } {
@@ -29,14 +29,14 @@ function publicAppOrigin(request: Request): { appUrl: string; isBinaryHost: bool
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.startsWith("localhost:");
   const isBinaryHost =
     process.env.PRODUCT_SURFACE === "binary"
-    || /^(www\.)?binaryoptionske\.com(?::\d+)?$/i.test(host);
+    || /^(www\.)?(binaryoptionske|moneybinaryke)\.com(?::\d+)?$/i.test(host);
 
   if (!isLocal && host) {
     return { appUrl: `${proto}://${host}`.replace(/\/+$/, ""), isBinaryHost };
   }
 
   if (isBinaryHost) {
-    const runtime = process.env.APP_URL?.trim() || "https://binaryoptionske.com";
+    const runtime = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://nezeem.com";
     return { appUrl: runtime.replace(/\/+$/, ""), isBinaryHost: true };
   }
 

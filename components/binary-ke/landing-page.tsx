@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Syne } from "next/font/google";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
+import { COMPANY } from "@/lib/company";
 import "./landing.css";
 
 const bokDisplay = Syne({
@@ -261,7 +262,7 @@ export function BinaryKeLandingPage() {
             <Link href="/binary" className="hover:text-white">
               Trading
             </Link>
-            <a href="mailto:support@binaryoptionske.com" className="hover:text-white">
+            <a href={`mailto:${COMPANY.emails.support}`} className="hover:text-white">
               Support
             </a>
           </div>

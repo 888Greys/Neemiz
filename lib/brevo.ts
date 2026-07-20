@@ -18,9 +18,9 @@ function theme() {
 }
 
 function supportEmail(): string {
-  if (isBinarySurface()) {
-    return (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@binaryoptionske.com").trim();
-  }
+  const override = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
+  if (override) return override;
+  if (isBinarySurface()) return `support@${theme().siteLabel}`;
   return "support@nezeem.com";
 }
 
@@ -35,7 +35,7 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
   if (!RESEND_API_KEY) {
     throw new Error("Resend send failed: RESEND_API_KEY is not configured");
   }
-  const fallbackSender = isBinarySurface() ? "noreply@binaryoptionske.com" : "noreply@nezeem.com";
+  const fallbackSender = isBinarySurface() ? `noreply@${theme().siteLabel}` : "noreply@nezeem.com";
   const sender = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? fallbackSender;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
