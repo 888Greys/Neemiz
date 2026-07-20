@@ -1,14 +1,53 @@
 import { ImageResponse } from "next/og";
-import { productSurface } from "@/lib/product-surface";
+import { productSurface, surfaceBrand } from "@/lib/product-surface";
 
 export const runtime = "edge";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
 export default function AppleIcon() {
-  const binary = productSurface() === "binary";
+  if (productSurface() === "binary") {
+    const brand = surfaceBrand();
 
-  if (binary) {
+    // MoneyBinary: green bg + white "M"
+    if (brand === "MoneyBinary") {
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#000000",
+              borderRadius: 40,
+            }}
+          >
+            <div
+              style={{
+                width: 120,
+                height: 120,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#22c55e",
+                borderRadius: 28,
+                color: "#ffffff",
+                fontSize: 72,
+                fontWeight: 800,
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              M
+            </div>
+          </div>
+        ),
+        { ...size },
+      );
+    }
+
+    // BinaryOptionsKE (default binary): black bg + lime "B"
     return new ImageResponse(
       (
         <div
@@ -45,6 +84,7 @@ export default function AppleIcon() {
     );
   }
 
+  // Nezeem: black bg + light blue "n"
   return new ImageResponse(
     (
       <div

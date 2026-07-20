@@ -1,15 +1,42 @@
 import { ImageResponse } from "next/og";
-import { productSurface } from "@/lib/product-surface";
+import { productSurface, surfaceBrand } from "@/lib/product-surface";
 
 export const runtime = "edge";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-/** Runtime favicon — Binary surface gets a “B” mark; Nezeem keeps the blue “n”. */
+/** Runtime favicon — each brand gets its own mark. */
 export default function Icon() {
-  const binary = productSurface() === "binary";
+  if (productSurface() === "binary") {
+    const brand = surfaceBrand();
 
-  if (binary) {
+    // MoneyBinary: green bg + white "M"
+    if (brand === "MoneyBinary") {
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#22c55e",
+              borderRadius: 8,
+              color: "#ffffff",
+              fontSize: 22,
+              fontWeight: 800,
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
+            M
+          </div>
+        ),
+        { ...size },
+      );
+    }
+
+    // BinaryOptionsKE (default binary): black bg + lime "B"
     return new ImageResponse(
       (
         <div
@@ -19,9 +46,9 @@ export default function Icon() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#b8ff2a",
+            background: "#000000",
             borderRadius: 8,
-            color: "#0a0f00",
+            color: "#b8ff2a",
             fontSize: 22,
             fontWeight: 800,
             fontFamily: "system-ui, sans-serif",
@@ -34,6 +61,7 @@ export default function Icon() {
     );
   }
 
+  // Nezeem: light blue bg + white "n"
   return new ImageResponse(
     (
       <div
@@ -43,8 +71,9 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#151518",
-          color: "#3b82f6",
+          background: "#3b82f6",
+          borderRadius: 8,
+          color: "#ffffff",
           fontSize: 26,
           fontWeight: 700,
           fontFamily: "Georgia, serif",
