@@ -20,7 +20,8 @@ const NAV: NavItem[] = [
   { label: "Players", icon: "groups", href: "/admin/new/players" },
   { label: "Risk", icon: "warning", href: "/admin/new/risk" },
   { label: "Ops", icon: "analytics", href: "/admin/new/ops" },
-  { label: "Binary sites", icon: "candlestick_chart", href: "/admin/new/binary-ke" },
+  { label: "Binary", icon: "candlestick_chart", href: "/admin/new/binary" },
+  { label: "Binary sites", icon: "hub", href: "/admin/new/binary-ke" },
   { label: "Copy trading", icon: "content_copy", href: "/admin/new/copy-trading" },
 ];
 
