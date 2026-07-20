@@ -1,0 +1,120 @@
+/* MoneyBinary marketing landing — ExpertOption-inspired: white, green, financial. */
+.moneybinary-landing {
+  --mb-green: #22c55e;
+  --mb-green-600: #16a34a;
+  --mb-green-700: #15803d;
+  --mb-bg: #ffffff;
+  --mb-surface: #f8fafc;
+  --mb-surface-2: #f1f5f9;
+  --mb-ink: #0f172a;
+  --mb-muted: #64748b;
+  --mb-line: #e2e8f0;
+  --mb-radius: 1.25rem;
+  --mb-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+
+  min-height: 100dvh;
+  background: var(--mb-bg);
+  color: var(--mb-ink);
+  font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.moneybinary-landing a {
+  text-decoration: none;
+}
+
+.mb-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--mb-green);
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: transform 140ms var(--mb-ease), background 140ms var(--mb-ease), box-shadow 140ms var(--mb-ease);
+  box-shadow: 0 8px 24px -8px rgba(34, 197, 94, 0.45);
+}
+
+.mb-cta:hover {
+  background: var(--mb-green-600);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px -8px rgba(34, 197, 94, 0.55);
+}
+
+.mb-cta:active {
+  transform: scale(0.97);
+}
+
+.mb-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1.5px solid var(--mb-line);
+  color: var(--mb-ink);
+  font-weight: 700;
+  transition: border-color 140ms var(--mb-ease), background 140ms var(--mb-ease);
+}
+
+.mb-cta-outline:hover {
+  border-color: var(--mb-green);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.mb-link-green {
+  color: var(--mb-green-600);
+  font-weight: 600;
+  transition: color 140ms var(--mb-ease);
+}
+
+.mb-link-green:hover {
+  color: var(--mb-green-700);
+}
+
+.mb-section-title {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.mb-hero-rise {
+  animation: mb-rise 720ms var(--mb-ease) both;
+}
+
+.mb-hero-rise-delay {
+  animation: mb-rise 780ms var(--mb-ease) 90ms both;
+}
+
+.mb-float {
+  animation: mb-float 4s ease-in-out infinite;
+}
+
+@keyframes mb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-hero-rise,
+  .mb-hero-rise-delay,
+  .mb-float {
+    animation: none !important;
+  }
+}
