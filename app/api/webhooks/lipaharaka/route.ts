@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { bokDb } from "@/lib/db-bok";
+import { mbkDb } from "@/lib/db-mbk";
 import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
 import { normalizeKenyanPhone } from "@/lib/lipaharaka";
 
@@ -180,6 +181,8 @@ export async function POST(req: Request) {
   const clients: Array<{ name: string; client: PrismaClient }> = [{ name: "neemiz", client: db }];
   const bok = bokDb();
   if (bok) clients.push({ name: "binaryoptionske", client: bok });
+  const mbk = mbkDb();
+  if (mbk) clients.push({ name: "moneybinaryke", client: mbk });
 
   for (const { name, client } of clients) {
     const tx = await findLipaTx(client, reference, phone, amount, body);
