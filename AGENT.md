@@ -18,9 +18,11 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 
 ### Detection (`lib/product-surface.ts`)
 
-- `PRODUCT_SURFACE=binary` env var — set on binary containers only
-- Falls back to hostname matching: `binaryAppHostname()` reads `NEXT_PUBLIC_APP_URL`
-- Legacy hardcoded fallback for `binaryoptionske.com` and `moneybinaryke.com`
+- `PRODUCT_SURFACE=binary` env var — REQUIRED on binary containers (it always wins)
+- Hardcoded hostname fallback for `binaryoptionske.com` and `moneybinaryke.com` only
+- `nezeem.com` (+ subdomains) is NEVER binary. Never match `NEXT_PUBLIC_APP_URL` for
+  surface detection — on Nezeem containers it holds the Nezeem domain, and matching it
+  flipped `www.nezeem.com` into the binary gate (2026-07-20 incident)
 - Client-side gate: `useIsBinarySurface()` from `lib/site-config-context.tsx`
 - Middleware gate: `isBinarySurface({ host })` in `proxy.ts`
 

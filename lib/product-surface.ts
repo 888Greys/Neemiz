@@ -42,9 +42,15 @@ export function binaryAppHostname(): string | null {
 function hostLooksBinary(host: string | null | undefined): boolean {
   if (!host) return false;
   const h = host.split(":")[0]?.toLowerCase() ?? "";
-  const appHost = binaryAppHostname();
-  if (appHost && (h === appHost || h.endsWith("." + appHost))) return true;
-  // Legacy: detect any known binary domain as fallback
+  // Nezeem hosts are NEVER the binary surface — this guard must win over any
+  // env-derived hostname matching.
+  if (h === "nezeem.com" || h.endsWith(".nezeem.com")) return false;
+  // Legacy: detect any known binary domain as fallback. Do NOT match
+  // binaryAppHostname() (NEXT_PUBLIC_APP_URL) here: on Nezeem containers that
+  // env IS a nezeem.com host, which flipped www.nezeem.com + nez-test into the
+  // binary gate on 2026-07-20 (/auth-email/* → /binary broke the GoTrue email
+  // templates; /dashboard → /binary broke the Nezeem site). Binary containers
+  // set PRODUCT_SURFACE=binary explicitly, which wins in productSurface().
   if (h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com")) return true;
   if (h === "moneybinaryke.com" || h.endsWith(".moneybinaryke.com")) return true;
   return false;
