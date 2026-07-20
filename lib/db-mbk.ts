@@ -18,7 +18,6 @@ function makeClient(): PrismaClient | null {
 export function mbkDb(): PrismaClient | null {
   if (globalForMbk.prismaMbk !== undefined) return globalForMbk.prismaMbk;
   const client = makeClient();
-  if (process.env.NODE_ENV !== "production") globalForMbk.prismaMbk = client;
-  else globalForMbk.prismaMbk = client;
+  globalForMbk.prismaMbk = client;
   return client;
 }
