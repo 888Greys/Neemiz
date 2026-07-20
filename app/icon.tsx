@@ -61,7 +61,7 @@ export default function Icon() {
     );
   }
 
-  // Nezeem: light blue bg + white "n"
+  // Nezeem: light blue bg + white italic bold "n"
   return new ImageResponse(
     (
       <div
@@ -75,7 +75,7 @@ export default function Icon() {
           borderRadius: 8,
           color: "#ffffff",
           fontSize: 26,
-          fontWeight: 700,
+          fontWeight: 900,
           fontFamily: "Georgia, serif",
           fontStyle: "italic",
         }}
