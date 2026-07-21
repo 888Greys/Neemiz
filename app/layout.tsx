@@ -13,6 +13,7 @@ import { SiteConfigProvider } from "@/lib/site-config-context";
 import { productSurface, surfaceBrand } from "@/lib/product-surface";
 import "./globals.css";
 import "@/components/binary-ke/trader.css";
+import "@/components/binarymarket/trader.css";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -67,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const surface = productSurface({ host });
   const brand = surfaceBrand({ host });
   return (
-    <html lang="en" className="dark" data-surface={surface}>
+    <html lang="en" className="dark" data-surface={surface} data-brand={brand}>
       <body className={`${jakarta.variable} ${jetBrains.variable} ${pacifico.variable} bg-background text-on-background`}>
         <SiteConfigProvider surface={surface} brand={brand}>
           <SupabaseAuthProvider>
