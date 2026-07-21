@@ -8,6 +8,7 @@ import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWall
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
+import { detectP2PRingSignals } from "@/lib/p2p/ring-detection";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET(req: Request) {
@@ -230,6 +231,10 @@ export async function POST(req: Request) {
       orderPaymentMethod = typeof paymentMethod === "string" && paymentMethod ? paymentMethod : "CHAT";
     }
 
+    // 2026-07-20 hardening: flag buyer↔merchant ring pairs (shared device /
+    // prior transfers). Any stored flag forces admin review at release time.
+    const ringSignals = await detectP2PRingSignals(db, dbUser.id, ad.merchant.userId);
+
     // Create order + reserve liquidity atomically.
     // All asset types now lock escrow per-order (shared balance pool model).
     const order = await db.$transaction(async (tx) => {
@@ -256,6 +261,7 @@ export async function POST(req: Request) {
             pricePerUnit: Number(ad.pricePerUnit),
             paymentMethod: orderPaymentMethod,
             expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
+            ...(ringSignals.length > 0 ? { riskFlags: ringSignals } : {}),
           },
         });
         await recordWalletCoinMovement(tx, {
@@ -295,6 +301,7 @@ export async function POST(req: Request) {
           pricePerUnit: Number(ad.pricePerUnit),
           paymentMethod: orderPaymentMethod,
           expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
+          ...(ringSignals.length > 0 ? { riskFlags: ringSignals } : {}),
         },
       });
       await tx.merchantProfile.update({

@@ -9,6 +9,7 @@ import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { ACTIVE_LOCAL_COIN_CODES } from "@/lib/p2p/local-coins";
+import { detectP2PRingSignals } from "@/lib/p2p/ring-detection";
 
 const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COIN_CODES]);
 const VALID_FIATS   = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -105,6 +106,10 @@ export async function POST(req: Request) {
       return Response.json({ error: "Amount no longer available — try again" }, { status: 409 });
     }
 
+    // 2026-07-20 hardening: flag buyer↔merchant ring pairs (shared device /
+    // prior transfers). Any stored flag forces admin review at release time.
+    const ringSignals = await detectP2PRingSignals(db, dbUser.id, match.merchant.userId);
+
     // Reserve liquidity + open order atomically (SELL ad: merchant crypto already escrowed).
     const order = await db.$transaction(async (tx) => {
       const reserved = await tx.p2PAd.updateMany({
@@ -129,6 +134,7 @@ export async function POST(req: Request) {
             pricePerUnit:  price,
             paymentMethod,
             expiresAt:     new Date(Date.now() + match.paymentWindow * 60 * 1000),
+            ...(ringSignals.length > 0 ? { riskFlags: ringSignals } : {}),
           },
         });
         await recordWalletCoinMovement(tx, {
@@ -161,6 +167,7 @@ export async function POST(req: Request) {
           pricePerUnit:  price,
           paymentMethod,
           expiresAt:     new Date(Date.now() + match.paymentWindow * 60 * 1000),
+          ...(ringSignals.length > 0 ? { riskFlags: ringSignals } : {}),
         },
       });
       await tx.merchantProfile.update({

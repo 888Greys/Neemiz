@@ -7,6 +7,7 @@ import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 import { recalcMerchantAdAmounts } from "@/lib/p2p/ad-backing";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { p2pRingFlags, releaseReviewReason } from "@/lib/p2p/ring-detection";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +56,38 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const network     = defaultNetwork(order.crypto);
     const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
     const rates       = await getFxRatesToKES();
+
+    // 2026-07-20 hardening: large releases and ring-flagged buyer/seller pairs
+    // must pass an admin review (auto-dispute) before any funds move. This is
+    // how the collo/collince ring laundered balances via self-released escrow.
+    let fiatKes: number;
+    try {
+      fiatKes = convertToKES(Number(order.fiatAmount), order.ad.fiat, rates.toKES);
+    } catch {
+      fiatKes = Number(order.fiatAmount); // unknown FX — be conservative
+    }
+    const reviewReason = releaseReviewReason(fiatKes, p2pRingFlags(order.riskFlags));
+    if (reviewReason) {
+      await db.$transaction(async (tx) => {
+        const flipped = await tx.p2POrder.updateMany({
+          where: { id, status: "PAID" },
+          data:  { status: "DISPUTED" },
+        });
+        if (flipped.count === 0) return; // already under review — same 202 below
+        await tx.p2PDispute.upsert({
+          where:  { orderId: id },
+          create: { orderId: id, raisedById: dbUser.id, reason: `AUTO_REVIEW: ${reviewReason}` },
+          update: {},
+        });
+        await createP2POrderEventMessage(tx, {
+          orderId: id,
+          senderId: dbUser.id,
+          content: `Release paused for admin review (${reviewReason}). An admin will complete or cancel this trade — no action is needed from either party.`,
+        });
+      });
+      return Response.json({ status: "UNDER_REVIEW", code: "RELEASE_UNDER_REVIEW" }, { status: 202 });
+    }
+
     // The executed ad price is immutable on the order. Convert it once while
     // booking the fee so admin P&L is stable even when crypto prices move later.
     const feeKesPerCrypto = isWalletBackedCoin(order.crypto)

@@ -13,6 +13,7 @@ import { P2PStatusBadge } from "@/components/p2p/status-badge";
 import { LoadingDots } from "@/components/loading-dots";
 import { paymentMethodLabel } from "@/lib/p2p/payment-methods";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
+import { isValidPaymentRef } from "@/lib/p2p/payment-ref";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1733,6 +1734,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
     if (status === "RELEASED") return "Trade completed";
     if (status === "CANCELLED") return "Order cancelled";
     if (status === "DISPUTED") return "Dispute submitted";
+    if (status === "UNDER_REVIEW") return "Sent for admin review";
     return "Order updated";
   }
 
@@ -2124,19 +2126,24 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-bold text-slate-400 mb-1.5 block">
-                      Transaction reference (optional)
+                      Transaction reference (required)
                     </label>
                     <input
                       type="text"
                       value={paidRef}
                       onChange={(e) => setPaidRef(e.target.value)}
-                      placeholder="e.g. QHJ2K3L9M — M-Pesa confirmation code"
+                      placeholder={order.paymentMethod === "MPESA" ? "e.g. SDA4K2X9PT — M-Pesa confirmation code" : "Bank/provider payment reference"}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-[#087cff]/40"
                     />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      {order.paymentMethod === "MPESA"
+                        ? "The 10-character M-Pesa code from your confirmation SMS."
+                        : "The reference from your bank/provider receipt."}
+                    </p>
                   </div>
                   <button
                     onClick={() => doAction("paid", { paymentRef: paidRef || null }, "paid")}
-                    disabled={!!actionLoading}
+                    disabled={!!actionLoading || !isValidPaymentRef(paidRef, order.paymentMethod)}
                     className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98]"
                   >
                     {actionLoading === "paid"
@@ -2147,15 +2154,34 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               )}
 
               {order.isSeller && order.status === "PENDING" && !merchantIsSelling && (
-                <button
-                  onClick={() => doAction("paid", { paymentRef: paidRef || null }, "paid")}
-                  disabled={!!actionLoading}
-                  className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  {actionLoading === "paid"
-                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
-                    : "Payment Completed"}
-                </button>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 mb-1.5 block">
+                      Transaction reference (required)
+                    </label>
+                    <input
+                      type="text"
+                      value={paidRef}
+                      onChange={(e) => setPaidRef(e.target.value)}
+                      placeholder={order.paymentMethod === "MPESA" ? "e.g. SDA4K2X9PT — M-Pesa confirmation code" : "Bank/provider payment reference"}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-[#087cff]/40"
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      {order.paymentMethod === "MPESA"
+                        ? "The 10-character M-Pesa code from your confirmation SMS."
+                        : "The reference from your bank/provider receipt."}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => doAction("paid", { paymentRef: paidRef || null }, "paid")}
+                    disabled={!!actionLoading || !isValidPaymentRef(paidRef, order.paymentMethod)}
+                    className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    {actionLoading === "paid"
+                      ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
+                      : "Payment Completed"}
+                  </button>
+                </div>
               )}
 
               {/* Seller: Release */}

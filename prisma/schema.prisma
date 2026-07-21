@@ -445,6 +445,10 @@ model P2POrder {
   paymentRef      String?   @map("payment_ref")
   paymentProofUrl String?   @map("payment_proof_url")
   paidAt          DateTime? @map("paid_at")
+  // P2P hardening (2026-07-20): buyer↔seller ring signals detected at order
+  // creation (shared device / transfer history). Any flag forces admin review
+  // at release time. NULL = not evaluated (pre-hardening orders).
+  riskFlags       Json?     @map("risk_flags")
 
   // Escrow
   escrowReleased Boolean   @default(false) @map("escrow_released")
