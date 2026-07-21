@@ -116,7 +116,7 @@ export function isPhoneAuthEmail(email: string | null | undefined): boolean {
   if (
     email.endsWith("@phone.binaryoptionske.com")
     || email.endsWith("@phone.moneybinaryke.com")
-    || email.endsWith("@phone.quickbinaryke.com")
+    || email.endsWith("@phone.binarymarket.org")
   ) return true;
 
   return false;

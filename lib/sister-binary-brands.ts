@@ -25,7 +25,7 @@ export const SISTER_BINARY_BRANDS: SisterBinaryBrand[] = [
     status: "live",
   },
   {
-    id: "quickbinaryke",
+    id: "binarymarket",
     name: "QuickBinary",
     domain: "binarymarket.org",
     status: "live",
