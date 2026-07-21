@@ -15,6 +15,8 @@ import { showPromoSuccess } from "@/components/promo-success";
 import { useSiteConfig } from "@/lib/site-config-context";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import "./auth.css";
+import "@/components/binarymarket/auth.css";
+import "@/components/moneybinary/auth.css";
 
 export type BinaryKeAuthTab = "login" | "register";
 

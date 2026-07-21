@@ -48,6 +48,22 @@ const BOK_THEME: LiveChartTheme = {
   areaTop: "rgba(184,255,42,0.22)", areaBottom: "rgba(184,255,42,0.02)",
   dot: "#ffffff", stub: "rgba(184,255,42,0.9)", lineColor: "#f0f0f0",
 };
+
+// MoneyBinary — emerald on dark green-black.
+const MBK_THEME: LiveChartTheme = {
+  bg: "#050d08",
+  up: "#10b981", down: "#f87171",
+  areaTop: "rgba(16,185,129,0.22)", areaBottom: "rgba(16,185,129,0.02)",
+  dot: "#ffffff", stub: "rgba(16,185,129,0.9)", lineColor: "#f0f0f0",
+};
+
+// BinaryMarket — blue on navy.
+const BM_THEME: LiveChartTheme = {
+  bg: "#080d1a",
+  up: "#3b82f6", down: "#f87171",
+  areaTop: "rgba(59,130,246,0.22)", areaBottom: "rgba(59,130,246,0.02)",
+  dot: "#ffffff", stub: "rgba(59,130,246,0.9)", lineColor: "#f0f0f0",
+};
 import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
@@ -61,7 +77,7 @@ import {
   type ClosedPosition,
 } from "@/lib/binary/history";
 import { CopyTradingPanel } from "@/components/binary/copy-trading-panel";
-import { useIsBinarySurface } from "@/lib/site-config-context";
+import { useIsBinarySurface, useSiteConfig } from "@/lib/site-config-context";
 import {
   BARRIER_TOO_CLOSE_COPY,
   MATCHES_FREQ_HI,
@@ -690,7 +706,12 @@ export function BinaryClient(props: BinaryClientProps) {
 function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: BinaryClientProps) {
   const isLive = !!userId;
   const bok = useIsBinarySurface();
-  const chartTheme = bok ? BOK_THEME : BINARY_THEME;
+  const { brand } = useSiteConfig();
+  const chartTheme = bok
+    ? brand === "BinaryMarket" ? BM_THEME
+    : brand === "MoneyBinary" ? MBK_THEME
+    : BOK_THEME
+    : BINARY_THEME;
   const setNavBadge = useNavBadge()?.setBadge;
   // Forced USD display for Binary; stakes posted to the server stay KES.
   const { convert, toKes, currency } = useCurrency();
