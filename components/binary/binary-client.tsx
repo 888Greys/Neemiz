@@ -49,12 +49,12 @@ const BOK_THEME: LiveChartTheme = {
   dot: "#ffffff", stub: "rgba(184,255,42,0.9)", lineColor: "#f0f0f0",
 };
 
-// MoneyBinary — emerald on dark green-black.
+// MoneyBinary — green on light grey.
 const MBK_THEME: LiveChartTheme = {
-  bg: "#050d08",
-  up: "#10b981", down: "#f87171",
-  areaTop: "rgba(16,185,129,0.22)", areaBottom: "rgba(16,185,129,0.02)",
-  dot: "#ffffff", stub: "rgba(16,185,129,0.9)", lineColor: "#f0f0f0",
+  bg: "#ffffff",
+  up: "#22c55e", down: "#dc2626",
+  areaTop: "rgba(34,197,94,0.18)", areaBottom: "rgba(34,197,94,0.02)",
+  dot: "#0f172a", stub: "rgba(34,197,94,0.9)", lineColor: "#0f172a",
 };
 
 // BinaryMarket — blue on navy.
