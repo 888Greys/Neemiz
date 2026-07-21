@@ -53,7 +53,7 @@ function hostLooksBinary(host: string | null | undefined): boolean {
   // set PRODUCT_SURFACE=binary explicitly, which wins in productSurface().
   if (h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com")) return true;
   if (h === "moneybinaryke.com" || h.endsWith(".moneybinaryke.com")) return true;
-  if (h === "quickbinaryke.com" || h.endsWith(".quickbinaryke.com")) return true;
+  if (h === "binarymarket.org" || h.endsWith(".binarymarket.org")) return true;
   return false;
 }
 
@@ -161,3 +161,4 @@ export function isBinaryAllowedPath(pathname: string): boolean {
   ];
   return allow.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
+

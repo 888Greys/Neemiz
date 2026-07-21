@@ -27,9 +27,7 @@ export const SISTER_BINARY_BRANDS: SisterBinaryBrand[] = [
   {
     id: "quickbinaryke",
     name: "QuickBinary",
-    // Placeholder domain until the real one is registered — swap everywhere
-    // (see AGENT.md "QuickBinary domain plug-in").
-    domain: "quickbinaryke.com",
+    domain: "binarymarket.org",
     status: "live",
   },
   {
