@@ -14,15 +14,30 @@
  * (login_devices has no ip column). Device fingerprint + transfer history are
  * the durable signals available in the schema.
  */
-import type { Prisma, PrismaClient } from "@prisma/client";
-
-type DbClient = Pick<Prisma.TransactionClient, "loginDevice" | "transaction"> | PrismaClient;
+/**
+ * Minimal structural DB interface — satisfied by PrismaClient / a transaction
+ * client, and easy to fake in tests.
+ */
+export interface RingDetectionDb {
+  loginDevice: {
+    findMany(args: { where: { userId: string }; select: { deviceHash: true } }): Promise<Array<{ deviceHash: string }>>;
+    count(args: { where: { userId: string; deviceHash: { in: string[] } } }): Promise<number>;
+  };
+  transaction: {
+    count(args: {
+      where: {
+        provider: string;
+        OR: Array<{ userId: string; metadata: { path: string[]; equals: string } }>;
+      };
+    }) => Promise<number>;
+  };
+}
 
 export type P2PRingSignal = "buyer_is_seller" | "shared_device" | "transfer_history";
 
 /** Detect buyer↔seller ring signals at order-creation time. */
 export async function detectP2PRingSignals(
-  tx: DbClient,
+  tx: RingDetectionDb,
   buyerId: string,
   sellerUserId: string,
 ): Promise<string[]> {
