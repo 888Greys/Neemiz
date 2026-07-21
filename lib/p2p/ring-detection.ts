@@ -29,7 +29,7 @@ export interface RingDetectionDb {
         provider: string;
         OR: Array<{ userId: string; metadata: { path: string[]; equals: string } }>;
       };
-    }) => Promise<number>;
+    }): Promise<number>;
   };
 }
 
