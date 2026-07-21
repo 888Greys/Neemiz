@@ -11,7 +11,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 | `nezeem.com` | Nezeem (full casino) | `full` | `postgres` | 3007/3008 (blue/green) |
 | `binaryoptionske.com` | BinaryOptionsKE | `binary` | `binaryoptionske` | 3010 |
 | `moneybinaryke.com` | MoneyBinary | `binary` | `moneybinaryke` | 3011 |
-| `quickbinaryke.com` *(placeholder — see plug-in below)* | QuickBinary | `binary` | `quickbinaryke` | 3012 |
+| `binarymarket.org` | QuickBinary | `binary` | `quickbinaryke` | 3012 |
 
 **Key insight:** Same GHCR image (`ghcr.io/888greys/neemiz:<sha>`), separate containers, separate Postgres databases on the same host, shared Supabase Auth/Kong. No forks, no separate deployments.
 
@@ -20,7 +20,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 ### Detection (`lib/product-surface.ts`)
 
 - `PRODUCT_SURFACE=binary` env var — REQUIRED on binary containers (it always wins)
-- Hardcoded hostname fallback for `binaryoptionske.com`, `moneybinaryke.com`, and `quickbinaryke.com` only
+- Hardcoded hostname fallback for `binaryoptionske.com`, `moneybinaryke.com`, and `binarymarket.org` only
 - `nezeem.com` (+ subdomains) is NEVER binary. Never match `NEXT_PUBLIC_APP_URL` for
   surface detection — on Nezeem containers it holds the Nezeem domain, and matching it
   flipped `www.nezeem.com` into the binary gate (2026-07-20 incident)
@@ -153,31 +153,20 @@ When adding a new binary-only site (e.g., `newsite.com`):
 11. Update `/opt/neemiz/deploy.sh` to bounce the new brand
 12. Update `.env.local.example` with local dev vars
 
-## QuickBinary domain plug-in
+## QuickBinary domain
 
 QuickBinary (id `quickbinaryke`, port 3012, DB `quickbinaryke`) was provisioned
-before its domain was registered, using the placeholder `quickbinaryke.com`.
-The container runs fully branded today (env-driven: `PRODUCT_SURFACE=binary` +
-`NEXT_PUBLIC_BRAND_NAME=QuickBinary`) — it is just not publicly reachable until
-DNS exists. When the real domain is registered:
+with a placeholder domain, then swapped to the real domain when it was registered.
 
-1. **Cloudflare:** A record `<domain>` → VPS IP, SSL mode **Full**.
-2. **Code (only if the domain is NOT `quickbinaryke.com`)** — swap these spots:
-   - `lib/product-surface.ts` — `hostLooksBinary()` fallback + `isPhoneAuthEmail()` legacy list
-   - `app/auth/callback/route.ts` — binary-host regex
-   - `lib/sister-binary-brands.ts` — `domain` field
-   - `app/api/admin/binary-ke/route.ts` — `siteUrl` in `getClient()`
-3. **VPS:** edit `NEXT_PUBLIC_APP_URL` / `APP_URL` (and any `*@quickbinaryke.com`
-   addresses) in `/opt/quickbinaryke/runtime.docker.env`, then
-   `/opt/quickbinaryke/bounce.sh`.
-4. **Nginx + TLS:** enable the prepared vhost and issue the cert:
-   `ln -s /etc/nginx/sites-available/quickbinaryke /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
-   then `certbot --nginx -d <domain> -d www.<domain>` (or install the Cloudflare origin cert).
-5. **Supabase Auth:** add `https://<domain>/auth/callback` + `https://www.<domain>/auth/callback`
-   to `ADDITIONAL_REDIRECT_URLS` in `/opt/supabase-prod/.env`, then
-   `cd /opt/supabase-prod && docker compose up -d --force-recreate auth`.
-6. **Google Cloud (optional):** add `https://<domain>` to the OAuth client's
-   Authorized JavaScript origins.
+- **Domain:** `binarymarket.org`
+- **Resolver hostname match:** `lib/product-surface.ts` — `hostLooksBinary()` checks `binarymarket.org`
+- **Auth callback regex:** `app/auth/callback/route.ts` — `binarymarket\.org` alternation
+- **Registry:** `lib/sister-binary-brands.ts` — `domain: "binarymarket.org"`
+- **Admin site URL:** `app/api/admin/binary-ke/route.ts` — `siteUrl: "https://binarymarket.org"`
+- **Phone auth email:** `isPhoneAuthEmail()` — `@phone.binarymarket.org`
+- **VPS runtime env:** `/opt/quickbinaryke/runtime.docker.env` — `NEXT_PUBLIC_APP_URL`, `APP_URL`, phone email domain all set to `binarymarket.org`
+- **Nginx:** `/etc/nginx/sites-enabled/binarymarket` → `proxy_pass http://127.0.0.1:3012`
+- **Supabase Auth:** `ADDITIONAL_REDIRECT_URLS` includes `https://binarymarket.org/auth/callback` + `https://www.binarymarket.org/auth/callback`
 
 ## Key files reference
 

@@ -40,7 +40,7 @@ function getClient(brand: string): { client: PrismaClient | null; label: string;
     return { client: mbkDb(), label: "MoneyBinary", siteUrl: "https://moneybinaryke.com" };
   }
   if (brand === "quickbinaryke") {
-    return { client: qbkDb(), label: "QuickBinary", siteUrl: "https://quickbinaryke.com" };
+    return { client: qbkDb(), label: "QuickBinary", siteUrl: "https://binarymarket.org" };
   }
   return { client: bokDb(), label: "BinaryOptionsKE", siteUrl: "https://binaryoptionske.com" };
 }

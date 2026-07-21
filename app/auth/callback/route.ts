@@ -29,7 +29,8 @@ function publicAppOrigin(request: Request): { appUrl: string; isBinaryHost: bool
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.startsWith("localhost:");
   const isBinaryHost =
     process.env.PRODUCT_SURFACE === "binary"
-    || /^(www\.)?(binaryoptionske|moneybinaryke|quickbinaryke)\.com(?::\d+)?$/i.test(host);
+    || /^(www\.)?(binaryoptionske|moneybinaryke)\.com(?::\d+)?$/i.test(host)
+    || /^(www\.)?binarymarket\.org(?::\d+)?$/i.test(host);
 
   if (!isLocal && host) {
     return { appUrl: `${proto}://${host}`.replace(/\/+$/, ""), isBinaryHost };

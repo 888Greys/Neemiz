@@ -38,8 +38,8 @@ describe("productSurface host detection", () => {
     expect(productSurface({ host: "www.binaryoptionske.com" })).toBe("binary");
     expect(productSurface({ host: "moneybinaryke.com" })).toBe("binary");
     expect(productSurface({ host: "www.moneybinaryke.com" })).toBe("binary");
-    expect(productSurface({ host: "quickbinaryke.com" })).toBe("binary");
-    expect(productSurface({ host: "www.quickbinaryke.com" })).toBe("binary");
+    expect(productSurface({ host: "binarymarket.org" })).toBe("binary");
+    expect(productSurface({ host: "www.binarymarket.org" })).toBe("binary");
   });
 
   it("lets PRODUCT_SURFACE=binary win on any host (binary containers)", () => {
