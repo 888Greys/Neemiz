@@ -14,6 +14,7 @@ import { productSurface, surfaceBrand } from "@/lib/product-surface";
 import "./globals.css";
 import "@/components/binary-ke/trader.css";
 import "@/components/binarymarket/trader.css";
+import "@/components/moneybinary/trader.css";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],

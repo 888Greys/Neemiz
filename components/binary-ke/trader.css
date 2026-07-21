@@ -1,7 +1,7 @@
 /* BinaryOptionsKE trading UI — Olymp-inspired, mobile-first.
    Scoped to html[data-surface="binary"]:not([data-brand="BinaryMarket"]) so Nezeem /binary is untouched. */
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) {
   --bok-bg: #000000;
   --bok-panel: #0e0e0e;
   --bok-panel-2: #161616;

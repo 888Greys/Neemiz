@@ -1,5 +1,5 @@
 /* BinaryOptionsKE dedicated auth — Olymp-inspired, landing tokens. */
-.bok-auth {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth {
   --bok-bg: #000000;
   --bok-card: #141414;
   --bok-input: #1c1c1c;
@@ -19,11 +19,11 @@
   font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
-.bok-auth a {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth a {
   text-decoration: none;
 }
 
-.bok-auth-card {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-card {
   width: 100%;
   max-width: 420px;
   border-radius: 1.5rem;
@@ -32,7 +32,7 @@
   animation: bok-auth-rise 420ms var(--bok-ease) both;
 }
 
-.bok-auth-tabs {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -42,7 +42,7 @@
   box-shadow: inset 0 0 0 1px var(--bok-line);
 }
 
-.bok-auth-tab {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-tab {
   border-radius: 9999px;
   padding: 0.65rem 0.75rem;
   font-size: 13px;
@@ -54,20 +54,20 @@
     transform 120ms var(--bok-ease);
 }
 
-.bok-auth-tab:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-tab:hover {
   color: #fff;
 }
 
-.bok-auth-tab[data-active="true"] {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-tab[data-active="true"] {
   background: #fff;
   color: #0a0a0a;
 }
 
-.bok-auth-tab:active {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-tab:active {
   transform: scale(0.98);
 }
 
-.bok-auth-field {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-field {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -79,11 +79,11 @@
   transition: box-shadow 160ms var(--bok-ease);
 }
 
-.bok-auth-field:focus-within {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-field:focus-within {
   box-shadow: inset 0 0 0 1px rgba(184, 255, 42, 0.45);
 }
 
-.bok-auth-field input {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-field input {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -93,11 +93,11 @@
   outline: none;
 }
 
-.bok-auth-field input::placeholder {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-field input::placeholder {
   color: #6b6b6b;
 }
 
-.bok-auth-cta {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-cta {
   display: inline-flex;
   width: 100%;
   align-items: center;
@@ -114,29 +114,29 @@
     transform 120ms var(--bok-ease);
 }
 
-.bok-auth-cta:hover:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-cta:hover:not(:disabled) {
   filter: brightness(1.05);
 }
 
-.bok-auth-cta:active:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-cta:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-.bok-auth-cta:disabled {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-cta:disabled {
   opacity: 0.55;
 }
 
-.bok-auth-link {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-link {
   color: var(--bok-lime);
   font-weight: 700;
   transition: opacity 140ms var(--bok-ease);
 }
 
-.bok-auth-link:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-link:hover {
   opacity: 0.85;
 }
 
-.bok-auth-social {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-social {
   display: flex;
   width: 100%;
   align-items: center;
@@ -154,15 +154,15 @@
     transform 120ms var(--bok-ease);
 }
 
-.bok-auth-social:hover:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-social:hover:not(:disabled) {
   background: #242424;
 }
 
-.bok-auth-social:active:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-social:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-.bok-auth-close {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-close {
   display: grid;
   height: 2.25rem;
   width: 2.25rem;
@@ -177,12 +177,12 @@
     transform 120ms var(--bok-ease);
 }
 
-.bok-auth-close:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-close:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.bok-auth-close:active {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-close:active {
   transform: scale(0.96);
 }
 
@@ -198,7 +198,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bok-auth-card {
+  html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) .bok-auth-card {
     animation: none !important;
   }
 }
