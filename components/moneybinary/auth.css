@@ -1,21 +1,19 @@
-/* MoneyBinary dedicated auth — dark emerald */
+/* MoneyBinary dedicated auth — light grey / white + green accent */
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth {
-  --bok-bg: #050d08;
-  --bok-card: #0a1a10;
-  --bok-input: #0f2216;
-  --bok-lime: #10b981;
-  --bok-lime-deep: #059669;
+  --bok-bg: #f8fafc;
+  --bok-card: #ffffff;
+  --bok-input: #f1f5f9;
+  --bok-lime: #22c55e;
+  --bok-lime-deep: #16a34a;
   --bok-lime-ink: #ffffff;
-  --bok-muted: #94a3b8;
-  --bok-line: rgba(255, 255, 255, 0.06);
+  --bok-muted: #64748b;
+  --bok-line: #e2e8f0;
   --bok-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
-  --bok-cta: linear-gradient(105deg, var(--bok-lime-deep) 0%, var(--bok-lime) 55%, #34d399 100%);
+  --bok-cta: linear-gradient(105deg, var(--bok-lime-deep) 0%, var(--bok-lime) 55%, #4ade80 100%);
 
   min-height: 100dvh;
-  background:
-    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(16, 185, 129, 0.1), transparent 55%),
-    var(--bok-bg);
-  color: #fff;
+  background: var(--bok-bg);
+  color: #0f172a;
   font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
@@ -28,7 +26,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-card {
   max-width: 420px;
   border-radius: 1.5rem;
   background: var(--bok-card);
-  box-shadow: 0 0 0 1px var(--bok-line), 0 28px 64px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 1px var(--bok-line), 0 2px 24px rgba(0, 0, 0, 0.06);
   animation: bok-auth-rise 420ms var(--bok-ease) both;
 }
 
@@ -38,7 +36,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-tabs {
   gap: 4px;
   padding: 4px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bok-input);
   box-shadow: inset 0 0 0 1px var(--bok-line);
 }
 
@@ -55,12 +53,12 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-tab {
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-tab:hover {
-  color: #fff;
+  color: #0f172a;
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-tab[data-active="true"] {
-  background: #fff;
-  color: #0a0a0a;
+  background: var(--bok-lime);
+  color: var(--bok-lime-ink);
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-tab:active {
@@ -80,7 +78,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-field {
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-field:focus-within {
-  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.45);
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-field input {
@@ -89,12 +87,12 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-field input {
   background: transparent;
   padding: 0.9rem 0;
   font-size: 14px;
-  color: #fff;
+  color: #0f172a;
   outline: none;
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-field input::placeholder {
-  color: #6b6b6b;
+  color: #94a3b8;
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-cta {
@@ -109,13 +107,15 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-cta {
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--bok-lime-ink);
+  box-shadow: 0 8px 24px -8px rgba(34, 197, 94, 0.45);
   transition:
     filter 140ms var(--bok-ease),
     transform 120ms var(--bok-ease);
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-cta:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
+  box-shadow: 0 12px 32px -8px rgba(34, 197, 94, 0.55);
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-cta:active:not(:disabled) {
@@ -147,7 +147,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-social {
   padding: 0.85rem 1rem;
   font-size: 13px;
   font-weight: 800;
-  color: #fff;
+  color: #0f172a;
   box-shadow: inset 0 0 0 1px var(--bok-line);
   transition:
     background 140ms var(--bok-ease),
@@ -155,7 +155,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-social {
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-social:hover:not(:disabled) {
-  background: #242424;
+  background: #e2e8f0;
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-social:active:not(:disabled) {
@@ -169,7 +169,7 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-close {
   place-items: center;
   border-radius: 9999px;
   color: var(--bok-muted);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bok-input);
   box-shadow: inset 0 0 0 1px var(--bok-line);
   transition:
     color 140ms var(--bok-ease),
@@ -178,8 +178,8 @@ html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-close {
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-close:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
+  color: #0f172a;
+  background: #e2e8f0;
 }
 
 html[data-surface="binary"][data-brand="MoneyBinary"] .bok-auth-close:active {
