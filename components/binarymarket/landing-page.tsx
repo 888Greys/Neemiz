@@ -100,7 +100,7 @@ export function BinaryMarketLandingPage() {
   const { brand } = useSiteConfig();
 
   return (
-    <div className="quickbinary-landing">
+    <div className="binarymarket-landing">
       {/* ── Header ── */}
       <header className="sticky top-0 z-40 border-b border-[var(--qb-line)] bg-[var(--qb-bg)]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
@@ -270,7 +270,7 @@ export function BinaryMarketLandingPage() {
             <span className="text-[var(--qb-amber)]">so should your platform</span>
           </h2>
           <p className="mt-5 text-[clamp(0.95rem,2vw,1.15rem)] leading-relaxed text-[var(--qb-muted)]">
-            QuickBinary is designed from the ground up for speed. No heavy dashboards, no clutter.
+            BinaryMarket is designed from the ground up for speed. No heavy dashboards, no clutter.
             Just the markets you want, when you want them.
           </p>
         </div>
