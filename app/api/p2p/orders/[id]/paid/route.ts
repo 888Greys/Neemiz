@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
+import { normalizePaymentRef, isValidPaymentRef, paymentRefError } from "@/lib/p2p/payment-ref";
 
 // POST /api/p2p/orders/[id]/paid — buyer marks payment done
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -38,12 +39,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const body = await req.json().catch(() => ({}));
     const { paymentRef, paymentProofUrl } = body as Record<string, string | undefined>;
 
+    // 2026-07-20 hardening: a real payment reference is mandatory. Ring accounts
+    // marked orders "paid" with an empty ref (no M-Pesa sent), then self-released
+    // the escrow from a linked merchant account.
+    const ref = normalizePaymentRef(paymentRef);
+    if (!isValidPaymentRef(ref, order.paymentMethod)) {
+      return Response.json({ error: paymentRefError(order.paymentMethod), code: "PAYMENT_REF_REQUIRED" }, { status: 400 });
+    }
+
     const updated = await db.$transaction(async (tx) => {
       const result = await tx.p2POrder.updateMany({
         where: { id, status: "PENDING", expiresAt: { gt: new Date() } },
         data: {
           status:          "PAID",
-          paymentRef:      paymentRef ?? null,
+          paymentRef:      ref,
           paymentProofUrl: paymentProofUrl ?? null,
           paidAt:          new Date(),
         },
@@ -75,9 +84,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await createP2POrderEventMessage(tx, {
         orderId: order.id,
         senderId: dbUser.id,
-        content: paymentRef?.trim()
-          ? `Payment marked completed. Reference: ${paymentRef.trim()}`
-          : "Payment marked completed. The coin holder should verify the funds before release.",
+        content: `Payment marked completed. Reference: ${ref}`,
       });
 
       return "PAID" as const;
