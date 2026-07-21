@@ -44,7 +44,7 @@ function renderBinaryLogo(brand: string, sizeClass: string, className: string) {
     <span className={`inline-flex items-baseline gap-0 font-black tracking-tight ${sizeClass} ${className}`}>
       {before ? <span className="text-white">{before}</span> : null}
       <span className={limeCls}>{binaryPart}</span>
-      {after ? <span className={limeCls}>{after}</span> : null}
+      {after ? <span className="text-white">{after}</span> : null}
       <span className="sr-only">{brand}</span>
     </span>
   );
