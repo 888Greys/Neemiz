@@ -1,0 +1,132 @@
+/* QuickBinary marketing landing — Speed/tech: deep navy, electric blue, amber.
+   Distinct from BinaryOptionsKE (dark/lime) and MoneyBinary (white/green). */
+.quickbinary-landing {
+  --qb-bg: #080d1a;
+  --qb-surface: #111827;
+  --qb-surface-hover: #1a2332;
+  --qb-blue: #3b82f6;
+  --qb-blue-600: #2563eb;
+  --qb-amber: #f59e0b;
+  --qb-amber-600: #d97706;
+  --qb-ink: #ffffff;
+  --qb-muted: #94a3b8;
+  --qb-line: rgba(255,255,255,0.06);
+  --qb-glow: rgba(59,130,246,0.35);
+  --qb-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+
+  min-height: 100dvh;
+  background: var(--qb-bg);
+  color: var(--qb-ink);
+  font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.quickbinary-landing a {
+  text-decoration: none;
+}
+
+/* ── CTA buttons ── */
+.qb-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--qb-amber) 0%, var(--qb-amber-600) 100%);
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: transform 160ms var(--qb-ease), box-shadow 160ms var(--qb-ease);
+  box-shadow: 0 8px 28px -8px rgba(245, 158, 11, 0.4);
+}
+
+.qb-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px -6px rgba(245, 158, 11, 0.55);
+}
+
+.qb-cta:active {
+  transform: scale(0.97);
+}
+
+.qb-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1.5px solid rgba(59,130,246,0.4);
+  color: var(--qb-blue);
+  font-weight: 700;
+  transition: border-color 160ms var(--qb-ease), background 160ms var(--qb-ease);
+}
+
+.qb-cta-outline:hover {
+  border-color: var(--qb-blue);
+  background: rgba(59,130,246,0.08);
+}
+
+/* ── Glass card ── */
+.qb-card {
+  background: var(--qb-surface);
+  border: 1px solid var(--qb-line);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+}
+
+/* ── Feature cards ── */
+.qb-feat-card {
+  background: linear-gradient(145deg, var(--qb-surface), var(--qb-surface-hover));
+  border: 1px solid var(--qb-line);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem;
+  transition: border-color 200ms var(--qb-ease), transform 200ms var(--qb-ease);
+}
+
+.qb-feat-card:hover {
+  border-color: rgba(59,130,246,0.3);
+  transform: translateY(-2px);
+}
+
+/* ── Sections ── */
+.qb-section-title {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+/* ── Hero animations ── */
+.qb-rise {
+  animation: qb-rise 680ms var(--qb-ease) both;
+}
+
+.qb-rise-delay {
+  animation: qb-rise 740ms var(--qb-ease) 100ms both;
+}
+
+.qb-float {
+  animation: qb-float 5s ease-in-out infinite;
+}
+
+@keyframes qb-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes qb-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ── Aurora glow backgrounds ── */
+.qb-aurora-blue {
+  background: radial-gradient(ellipse 60% 60% at 30% 20%, rgba(59,130,246,0.2), transparent 50%);
+}
+
+.qb-aurora-amber {
+  background: radial-gradient(ellipse 50% 50% at 80% 30%, rgba(245,158,11,0.12), transparent 50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qb-rise, .qb-rise-delay, .qb-float {
+    animation: none !important;
+  }
+}

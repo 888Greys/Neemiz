@@ -11,7 +11,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 | `nezeem.com` | Nezeem (full casino) | `full` | `postgres` | 3007/3008 (blue/green) |
 | `binaryoptionske.com` | BinaryOptionsKE | `binary` | `binaryoptionske` | 3010 |
 | `moneybinaryke.com` | MoneyBinary | `binary` | `moneybinaryke` | 3011 |
-| `binarymarket.org` | QuickBinary | `binary` | `quickbinaryke` | 3012 |
+| `binarymarket.org` | QuickBinary | `binary` | `binarymarket` | 3012 |
 
 **Key insight:** Same GHCR image (`ghcr.io/888greys/neemiz:<sha>`), separate containers, separate Postgres databases on the same host, shared Supabase Auth/Kong. No forks, no separate deployments.
 
@@ -62,7 +62,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
   runtime.docker.env
   bounce.sh
 
-/opt/quickbinaryke/           — QuickBinary (sibling pattern, port 3012)
+/opt/binarymarket/           — QuickBinary (sibling pattern, port 3012)
   runtime.docker.env
   bounce.sh
 
@@ -77,7 +77,7 @@ On every `main` push → `deploy.sh`:
 2. VPS pulls, blue/green swaps Nezeem
 3. Runs `/opt/binaryoptionske/bounce.sh "$IMAGE"`
 4. Runs `/opt/moneybinaryke/bounce.sh "$IMAGE"`
-5. Runs `/opt/quickbinaryke/bounce.sh "$IMAGE"`
+5. Runs `/opt/binarymarket/bounce.sh "$IMAGE"`
 
 **Critical:** Binary site bounces don't roll back Nezeem. Failures are logged as warnings.
 
@@ -87,8 +87,8 @@ On every `main` push → `deploy.sh`:
 - `lib/db.ts` — Nezeem Prisma client (default)
 - `lib/db-bok.ts` — BinaryOptionsKE Prisma client (`bokDb()`)
 - `lib/db-mbk.ts` — MoneyBinary Prisma client (`mbkDb()`)
-- `lib/db-qbk.ts` — QuickBinary Prisma client (`qbkDb()`)
-- Nezeem runtime needs `BINARYOPTIONSKE_DATABASE_URL` + `MONEYBINARYKE_DATABASE_URL` + `QUICKBINARYKE_DATABASE_URL` for admin ops and Lipa webhook
+- `lib/db-binarymarket.ts` — QuickBinary Prisma client (`binarymarketDb()`)
+- Nezeem runtime needs `BINARYOPTIONSKE_DATABASE_URL` + `MONEYBINARYKE_DATABASE_URL` + `BINARYMARKET_DATABASE_URL` for admin ops and Lipa webhook
 
 ## Payment webhooks (critical gotcha)
 
@@ -155,7 +155,7 @@ When adding a new binary-only site (e.g., `newsite.com`):
 
 ## QuickBinary domain
 
-QuickBinary (id `quickbinaryke`, port 3012, DB `quickbinaryke`) was provisioned
+QuickBinary (id `binarymarket`, port 3012, DB `binarymarket`) was provisioned
 with a placeholder domain, then swapped to the real domain when it was registered.
 
 - **Domain:** `binarymarket.org`
@@ -164,7 +164,7 @@ with a placeholder domain, then swapped to the real domain when it was registere
 - **Registry:** `lib/sister-binary-brands.ts` — `domain: "binarymarket.org"`
 - **Admin site URL:** `app/api/admin/binary-ke/route.ts` — `siteUrl: "https://binarymarket.org"`
 - **Phone auth email:** `isPhoneAuthEmail()` — `@phone.binarymarket.org`
-- **VPS runtime env:** `/opt/quickbinaryke/runtime.docker.env` — `NEXT_PUBLIC_APP_URL`, `APP_URL`, phone email domain all set to `binarymarket.org`
+- **VPS runtime env:** `/opt/binarymarket/runtime.docker.env` — `NEXT_PUBLIC_APP_URL`, `APP_URL`, phone email domain all set to `binarymarket.org`
 - **Nginx:** `/etc/nginx/sites-enabled/binarymarket` → `proxy_pass http://127.0.0.1:3012`
 - **Supabase Auth:** `ADDITIONAL_REDIRECT_URLS` includes `https://binarymarket.org/auth/callback` + `https://www.binarymarket.org/auth/callback`
 
@@ -178,7 +178,7 @@ with a placeholder domain, then swapped to the real domain when it was registere
 | Company/legal | `lib/company.ts` |
 | Brand logo | `components/brand-logo.tsx` |
 | Sister brand registry | `lib/sister-binary-brands.ts` |
-| DB clients | `lib/db.ts`, `lib/db-bok.ts`, `lib/db-mbk.ts`, `lib/db-qbk.ts` |
+| DB clients | `lib/db.ts`, `lib/db-bok.ts`, `lib/db-mbk.ts`, `lib/db-binarymarket.ts` |
 | Lipa webhook | `app/api/webhooks/lipaharaka/route.ts` |
 | Admin ops | `app/api/admin/binary-ke/route.ts`, `components/admin-v2/binary-ke.tsx` |
 | Trader CSS | `components/binary-ke/trader.css` |
@@ -204,4 +204,6 @@ NEXT_PUBLIC_BRAND_NAME=MoneyBinary \
 NEXT_PUBLIC_APP_URL=http://localhost:3000 \
 DATABASE_URL=postgresql://.../moneybinaryke_local \
 npm run dev
+```
+n dev
 ```
