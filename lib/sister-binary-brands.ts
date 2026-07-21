@@ -1,7 +1,7 @@
 /**
  * Sister binary-only brands tracked from Nezeem admin (`/admin/new/binary-ke`).
- * Four planned sites — fill name/domain as each goes live. Ops metrics today
- * load for the `live` site that has BINARYOPTIONSKE_DATABASE_URL (id binaryoptionske).
+ * Four planned sites — fill name/domain as each goes live. Ops metrics load for
+ * `live` brands whose <BRAND>_DATABASE_URL is set on the Nezeem runtime.
  */
 export type SisterBinaryBrand = {
   id: string;
@@ -25,10 +25,12 @@ export const SISTER_BINARY_BRANDS: SisterBinaryBrand[] = [
     status: "live",
   },
   {
-    id: "binary-site-3",
-    name: "Binary site 3",
-    domain: null,
-    status: "planned",
+    id: "quickbinaryke",
+    name: "QuickBinary",
+    // Placeholder domain until the real one is registered — swap everywhere
+    // (see AGENT.md "QuickBinary domain plug-in").
+    domain: "quickbinaryke.com",
+    status: "live",
   },
   {
     id: "binary-site-4",

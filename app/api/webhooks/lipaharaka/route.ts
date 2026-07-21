@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { bokDb } from "@/lib/db-bok";
 import { mbkDb } from "@/lib/db-mbk";
+import { qbkDb } from "@/lib/db-qbk";
 import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
 import { normalizeKenyanPhone } from "@/lib/lipaharaka";
 
@@ -183,6 +184,8 @@ export async function POST(req: Request) {
   if (bok) clients.push({ name: "binaryoptionske", client: bok });
   const mbk = mbkDb();
   if (mbk) clients.push({ name: "moneybinaryke", client: mbk });
+  const qbk = qbkDb();
+  if (qbk) clients.push({ name: "quickbinaryke", client: qbk });
 
   for (const { name, client } of clients) {
     const tx = await findLipaTx(client, reference, phone, amount, body);

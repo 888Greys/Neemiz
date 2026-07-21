@@ -69,7 +69,7 @@ function statusTone(status: string) {
   return "text-[#c2c6d6]";
 }
 
-const LIVE_BRAND_IDS = ["binaryoptionske", "moneybinaryke"];
+const LIVE_BRAND_IDS = ["binaryoptionske", "moneybinaryke", "quickbinaryke"];
 
 export function AdminV2BinaryKe() {
   const [selectedId, setSelectedId] = useState(SISTER_BINARY_BRANDS[0]!.id);
