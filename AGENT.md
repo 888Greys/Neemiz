@@ -11,6 +11,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 | `nezeem.com` | Nezeem (full casino) | `full` | `postgres` | 3007/3008 (blue/green) |
 | `binaryoptionske.com` | BinaryOptionsKE | `binary` | `binaryoptionske` | 3010 |
 | `moneybinaryke.com` | MoneyBinary | `binary` | `moneybinaryke` | 3011 |
+| `quickbinaryke.com` *(placeholder — see plug-in below)* | QuickBinary | `binary` | `quickbinaryke` | 3012 |
 
 **Key insight:** Same GHCR image (`ghcr.io/888greys/neemiz:<sha>`), separate containers, separate Postgres databases on the same host, shared Supabase Auth/Kong. No forks, no separate deployments.
 
@@ -19,7 +20,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 ### Detection (`lib/product-surface.ts`)
 
 - `PRODUCT_SURFACE=binary` env var — REQUIRED on binary containers (it always wins)
-- Hardcoded hostname fallback for `binaryoptionske.com` and `moneybinaryke.com` only
+- Hardcoded hostname fallback for `binaryoptionske.com`, `moneybinaryke.com`, and `quickbinaryke.com` only
 - `nezeem.com` (+ subdomains) is NEVER binary. Never match `NEXT_PUBLIC_APP_URL` for
   surface detection — on Nezeem containers it holds the Nezeem domain, and matching it
   flipped `www.nezeem.com` into the binary gate (2026-07-20 incident)
@@ -61,6 +62,10 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
   runtime.docker.env
   bounce.sh
 
+/opt/quickbinaryke/           — QuickBinary (sibling pattern, port 3012)
+  runtime.docker.env
+  bounce.sh
+
 /opt/supabase-prod/           — Self-hosted Supabase (shared)
   .env                        — ADDITIONAL_REDIRECT_URLS (OAuth allowlist)
   docker-compose.yml          — Auth + DB containers
@@ -72,6 +77,7 @@ On every `main` push → `deploy.sh`:
 2. VPS pulls, blue/green swaps Nezeem
 3. Runs `/opt/binaryoptionske/bounce.sh "$IMAGE"`
 4. Runs `/opt/moneybinaryke/bounce.sh "$IMAGE"`
+5. Runs `/opt/quickbinaryke/bounce.sh "$IMAGE"`
 
 **Critical:** Binary site bounces don't roll back Nezeem. Failures are logged as warnings.
 
@@ -81,7 +87,8 @@ On every `main` push → `deploy.sh`:
 - `lib/db.ts` — Nezeem Prisma client (default)
 - `lib/db-bok.ts` — BinaryOptionsKE Prisma client (`bokDb()`)
 - `lib/db-mbk.ts` — MoneyBinary Prisma client (`mbkDb()`)
-- Nezeem runtime needs `BINARYOPTIONSKE_DATABASE_URL` + `MONEYBINARYKE_DATABASE_URL` for admin ops and Lipa webhook
+- `lib/db-qbk.ts` — QuickBinary Prisma client (`qbkDb()`)
+- Nezeem runtime needs `BINARYOPTIONSKE_DATABASE_URL` + `MONEYBINARYKE_DATABASE_URL` + `QUICKBINARYKE_DATABASE_URL` for admin ops and Lipa webhook
 
 ## Payment webhooks (critical gotcha)
 
@@ -146,6 +153,32 @@ When adding a new binary-only site (e.g., `newsite.com`):
 11. Update `/opt/neemiz/deploy.sh` to bounce the new brand
 12. Update `.env.local.example` with local dev vars
 
+## QuickBinary domain plug-in
+
+QuickBinary (id `quickbinaryke`, port 3012, DB `quickbinaryke`) was provisioned
+before its domain was registered, using the placeholder `quickbinaryke.com`.
+The container runs fully branded today (env-driven: `PRODUCT_SURFACE=binary` +
+`NEXT_PUBLIC_BRAND_NAME=QuickBinary`) — it is just not publicly reachable until
+DNS exists. When the real domain is registered:
+
+1. **Cloudflare:** A record `<domain>` → VPS IP, SSL mode **Full**.
+2. **Code (only if the domain is NOT `quickbinaryke.com`)** — swap these spots:
+   - `lib/product-surface.ts` — `hostLooksBinary()` fallback + `isPhoneAuthEmail()` legacy list
+   - `app/auth/callback/route.ts` — binary-host regex
+   - `lib/sister-binary-brands.ts` — `domain` field
+   - `app/api/admin/binary-ke/route.ts` — `siteUrl` in `getClient()`
+3. **VPS:** edit `NEXT_PUBLIC_APP_URL` / `APP_URL` (and any `*@quickbinaryke.com`
+   addresses) in `/opt/quickbinaryke/runtime.docker.env`, then
+   `/opt/quickbinaryke/bounce.sh`.
+4. **Nginx + TLS:** enable the prepared vhost and issue the cert:
+   `ln -s /etc/nginx/sites-available/quickbinaryke /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
+   then `certbot --nginx -d <domain> -d www.<domain>` (or install the Cloudflare origin cert).
+5. **Supabase Auth:** add `https://<domain>/auth/callback` + `https://www.<domain>/auth/callback`
+   to `ADDITIONAL_REDIRECT_URLS` in `/opt/supabase-prod/.env`, then
+   `cd /opt/supabase-prod && docker compose up -d --force-recreate auth`.
+6. **Google Cloud (optional):** add `https://<domain>` to the OAuth client's
+   Authorized JavaScript origins.
+
 ## Key files reference
 
 | Concern | Files |
@@ -156,7 +189,7 @@ When adding a new binary-only site (e.g., `newsite.com`):
 | Company/legal | `lib/company.ts` |
 | Brand logo | `components/brand-logo.tsx` |
 | Sister brand registry | `lib/sister-binary-brands.ts` |
-| DB clients | `lib/db.ts`, `lib/db-bok.ts`, `lib/db-mbk.ts` |
+| DB clients | `lib/db.ts`, `lib/db-bok.ts`, `lib/db-mbk.ts`, `lib/db-qbk.ts` |
 | Lipa webhook | `app/api/webhooks/lipaharaka/route.ts` |
 | Admin ops | `app/api/admin/binary-ke/route.ts`, `components/admin-v2/binary-ke.tsx` |
 | Trader CSS | `components/binary-ke/trader.css` |

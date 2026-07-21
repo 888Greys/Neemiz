@@ -6,6 +6,7 @@ import { Syne } from "next/font/google";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { COMPANY } from "@/lib/company";
+import { useSiteConfig } from "@/lib/site-config-context";
 import "./landing.css";
 
 const bokDisplay = Syne({
@@ -69,8 +70,34 @@ function PhoneMock() {
   );
 }
 
+/**
+ * Hero wordmark per brand. BinaryOptionsKE keeps its legacy "BinaryKE" mark;
+ * other binary brands (QuickBinary, …) split at "Binary" — prefix white, rest lime
+ * (mirrors `renderBinaryLogo` in components/brand-logo.tsx).
+ */
+function heroWordmark(brand: string) {
+  if (brand === "BinaryOptionsKE" || brand.startsWith("BinaryOptions")) {
+    return (
+      <>
+        Binary<span className="text-[var(--bok-lime)]">KE</span>
+      </>
+    );
+  }
+  const idx = brand.toLowerCase().indexOf("binary");
+  if (idx === -1) {
+    return <span className="text-[var(--bok-lime)]">{brand}</span>;
+  }
+  return (
+    <>
+      {brand.slice(0, idx)}
+      <span className="text-[var(--bok-lime)]">{brand.slice(idx)}</span>
+    </>
+  );
+}
+
 export function BinaryKeLandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { brand } = useSiteConfig();
 
   return (
     <div className={`bok-landing ${bokDisplay.variable}`}>
@@ -150,7 +177,7 @@ export function BinaryKeLandingPage() {
         />
         <div className="relative mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-6xl flex-col items-center px-4 pb-16 pt-10 sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pt-14">
           <p className="bok-display bok-hero-rise text-[clamp(2.4rem,8vw,4.5rem)] font-extrabold leading-none tracking-tight text-white">
-            Binary<span className="text-[var(--bok-lime)]">KE</span>
+            {heroWordmark(brand)}
           </p>
           <h1 className="bok-display bok-hero-rise-delay mt-5 max-w-2xl text-center text-[clamp(1.35rem,3.6vw,2.15rem)] font-bold leading-[1.15] tracking-tight text-white">
             Build confidence with every single trade
@@ -248,7 +275,7 @@ export function BinaryKeLandingPage() {
           <div>
             <BrandLogo href="/" size="sm" />
             <p className="mt-2 max-w-sm text-[12px] leading-relaxed text-[var(--bok-muted)]">
-              BinaryOptionsKE — binary options trading. Past results do not guarantee future outcomes.
+              {brand} — binary options trading. Past results do not guarantee future outcomes.
               Trade responsibly.
             </p>
           </div>

@@ -4,6 +4,7 @@ import { isOwnerEmail } from "@/lib/admin-allowlist";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { bokDb } from "@/lib/db-bok";
 import { mbkDb } from "@/lib/db-mbk";
+import { qbkDb } from "@/lib/db-qbk";
 import { TransactionStatus, TransactionType, PrismaClient } from "@prisma/client";
 
 async function requireAdmin() {
@@ -37,6 +38,9 @@ function periodRange(period: Period) {
 function getClient(brand: string): { client: PrismaClient | null; label: string; siteUrl: string } {
   if (brand === "moneybinaryke") {
     return { client: mbkDb(), label: "MoneyBinary", siteUrl: "https://moneybinaryke.com" };
+  }
+  if (brand === "quickbinaryke") {
+    return { client: qbkDb(), label: "QuickBinary", siteUrl: "https://quickbinaryke.com" };
   }
   return { client: bokDb(), label: "BinaryOptionsKE", siteUrl: "https://binaryoptionske.com" };
 }

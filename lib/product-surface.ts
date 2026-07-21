@@ -53,6 +53,7 @@ function hostLooksBinary(host: string | null | undefined): boolean {
   // set PRODUCT_SURFACE=binary explicitly, which wins in productSurface().
   if (h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com")) return true;
   if (h === "moneybinaryke.com" || h.endsWith(".moneybinaryke.com")) return true;
+  if (h === "quickbinaryke.com" || h.endsWith(".quickbinaryke.com")) return true;
   return false;
 }
 
@@ -112,7 +113,11 @@ export function isPhoneAuthEmail(email: string | null | undefined): boolean {
   if (host && email.endsWith(`@phone.${host}`)) return true;
 
   // Legacy: hardcoded binary brands
-  if (email.endsWith("@phone.binaryoptionske.com") || email.endsWith("@phone.moneybinaryke.com")) return true;
+  if (
+    email.endsWith("@phone.binaryoptionske.com")
+    || email.endsWith("@phone.moneybinaryke.com")
+    || email.endsWith("@phone.quickbinaryke.com")
+  ) return true;
 
   return false;
 }
