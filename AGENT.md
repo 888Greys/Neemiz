@@ -11,7 +11,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
 | `nezeem.com` | Nezeem (full casino) | `full` | `postgres` | 3007/3008 (blue/green) |
 | `binaryoptionske.com` | BinaryOptionsKE | `binary` | `binaryoptionske` | 3010 |
 | `moneybinaryke.com` | MoneyBinary | `binary` | `moneybinaryke` | 3011 |
-| `binarymarket.org` | QuickBinary | `binary` | `binarymarket` | 3012 |
+| `binarymarket.org` | BinaryMarket | `binary` | `binarymarket` | 3012 |
 
 **Key insight:** Same GHCR image (`ghcr.io/888greys/neemiz:<sha>`), separate containers, separate Postgres databases on the same host, shared Supabase Auth/Kong. No forks, no separate deployments.
 
@@ -62,7 +62,7 @@ This is a Next.js 14 monorepo serving **one Docker image** that powers multiple 
   runtime.docker.env
   bounce.sh
 
-/opt/binarymarket/           — QuickBinary (sibling pattern, port 3012)
+/opt/binarymarket/           — BinaryMarket (sibling pattern, port 3012)
   runtime.docker.env
   bounce.sh
 
@@ -87,7 +87,7 @@ On every `main` push → `deploy.sh`:
 - `lib/db.ts` — Nezeem Prisma client (default)
 - `lib/db-bok.ts` — BinaryOptionsKE Prisma client (`bokDb()`)
 - `lib/db-mbk.ts` — MoneyBinary Prisma client (`mbkDb()`)
-- `lib/db-binarymarket.ts` — QuickBinary Prisma client (`binarymarketDb()`)
+- `lib/db-binarymarket.ts` — BinaryMarket Prisma client (`binarymarketDb()`)
 - Nezeem runtime needs `BINARYOPTIONSKE_DATABASE_URL` + `MONEYBINARYKE_DATABASE_URL` + `BINARYMARKET_DATABASE_URL` for admin ops and Lipa webhook
 
 ## Payment webhooks (critical gotcha)
@@ -153,9 +153,9 @@ When adding a new binary-only site (e.g., `newsite.com`):
 11. Update `/opt/neemiz/deploy.sh` to bounce the new brand
 12. Update `.env.local.example` with local dev vars
 
-## QuickBinary domain
+## BinaryMarket domain
 
-QuickBinary (id `binarymarket`, port 3012, DB `binarymarket`) was provisioned
+BinaryMarket (id `binarymarket`, port 3012, DB `binarymarket`) was provisioned
 with a placeholder domain, then swapped to the real domain when it was registered.
 
 - **Domain:** `binarymarket.org`

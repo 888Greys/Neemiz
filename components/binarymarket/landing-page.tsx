@@ -95,7 +95,7 @@ function PulseDot() {
   );
 }
 
-export function QuickBinaryLandingPage() {
+export function BinaryMarketLandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { brand } = useSiteConfig();
 

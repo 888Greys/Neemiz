@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isBinarySurface, surfaceBrand } from "@/lib/product-surface";
 import { BinaryKeLandingPage } from "@/components/binary-ke/landing-page";
 import { MoneyBinaryLandingPage } from "@/components/moneybinary/landing-page";
-import { QuickBinaryLandingPage } from "@/components/quickbinary/landing-page";
+import { BinaryMarketLandingPage } from "@/components/binarymarket/landing-page";
 
 // One image serves Nezeem + Binary brands; surface is chosen at runtime via env.
 // Must stay dynamic so Next never bakes a static "/" → /dashboard redirect.
@@ -32,8 +32,8 @@ export default async function RootPage() {
       return <MoneyBinaryLandingPage />;
     }
 
-    if (brand === "QuickBinary") {
-      return <QuickBinaryLandingPage />;
+    if (brand === "BinaryMarket") {
+      return <BinaryMarketLandingPage />;
     }
 
     return <BinaryKeLandingPage />;

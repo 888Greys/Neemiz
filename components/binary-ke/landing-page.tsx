@@ -72,7 +72,7 @@ function PhoneMock() {
 
 /**
  * Hero wordmark per brand. BinaryOptionsKE keeps its legacy "BinaryKE" mark;
- * other binary brands (e.g. QuickBinary) split at "Binary" — prefix white, rest lime
+ * other binary brands split at "Binary" — prefix white, rest lime
  * (mirrors `renderBinaryLogo` in components/brand-logo.tsx).
  */
 function heroWordmark(brand: string) {
