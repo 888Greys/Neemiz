@@ -419,8 +419,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    const depositMin = wdLimit?.isAdmin ? 1 : 200;
-    if (Number(amount) < depositMin) { setError(`Minimum deposit is KSh ${depositMin}.`); return; }
+    const depositMin = wdLimit?.isAdmin ? 1 : 645;
+    if (Number(amount) < depositMin) { setError(`Minimum deposit is $5 (KSh ${depositMin}).`); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit/lipaharaka", {
