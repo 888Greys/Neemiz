@@ -131,7 +131,12 @@ export function AviatorBetPanel({
   const placeAutoBet = useCallback(async () => {
     const amt = amountRef.current;
     if (amt < MIN_BET) { setAutoBetOn(false); return; }
-    const ac = acEnabledRef.current && autoCashoutRef.current >= 1.01 ? autoCashoutRef.current : undefined;
+    // Auto-bet ALWAYS cashes out at the configured multiplier. Unlike the Bet
+    // tab (where auto-cashout is an opt-in toggle and a human can cash out
+    // manually), auto mode is unattended — without a target the bet just rides
+    // to the crash and loses every round, which read as "auto-trader not
+    // working". The Auto Cashout input is min 1.01, so this is always valid.
+    const ac = autoCashoutRef.current >= 1.01 ? autoCashoutRef.current : undefined;
     try { await onBet(amt, panelIndex, ac); }
     catch (e: unknown) { setError((e as Error).message ?? "Auto-bet failed"); setAutoBetOn(false); }
   }, [onBet, panelIndex]);
@@ -448,7 +453,7 @@ export function AviatorBetPanel({
                   key={v}
                   onClick={() => { setAutoCashout(v); setAcEnabled(true); }}
                   className={`flex-1 rounded-md border py-1 text-[8px] font-black transition-colors lg:rounded-lg lg:py-1.5 lg:text-[10px] ${
-                    autoCashout === v && acEnabled
+                    autoCashout === v
                       ? "border-[#087cff]/50 bg-[#087cff]/10 text-[#087cff]"
                       : "border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white"
                   }`}
