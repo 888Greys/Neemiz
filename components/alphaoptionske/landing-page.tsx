@@ -256,7 +256,7 @@ export function AlphaOptionsKELandingPage() {
       <section id="about" className="scroll-mt-20 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="ao-section-title leading-[1.2] text-white">
-            You don't follow the market —{" "}
+            You don&apos;t follow the market —{" "}
             <span className="text-[var(--ao-gold)]">you lead it</span>
           </h2>
           <p className="mt-5 text-[clamp(0.95rem,2vw,1.15rem)] leading-relaxed text-[var(--ao-muted)]">
