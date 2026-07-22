@@ -155,6 +155,24 @@ export async function POST(req: Request) {
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
+      // ONE transfer per non-admin sender, EVER. A regular user may send to
+      // another user only once (not twice) — an anti-mule guard for the
+      // controlled rollout. The debit above row-locks the sender, so two
+      // concurrent sends can't both pass this check. Admins are exempt (they
+      // seed accounts, bounded by the once-ever-per-recipient rule below).
+      if (!sender.isAdmin) {
+        const priorSend = await tx.transaction.findFirst({
+          where: {
+            userId:   sender.id,
+            provider: "wallet_transfer",
+            type:     TransactionType.WITHDRAWAL,
+            status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+          },
+          select: { id: true },
+        });
+        if (priorSend) throw new Error("SENDER_ONCE_ONLY");
+      }
+
       if (!sender.isAdmin) {
         const limit = dailyLimitKes();
         const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
@@ -253,6 +271,12 @@ export async function POST(req: Request) {
     }
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "SENDER_ONCE_ONLY") {
+      return Response.json({
+        code: "SENDER_ONCE_ONLY",
+        error: "You can only send money to another user once.",
+      }, { status: 400 });
     }
     if (error instanceof Error && error.message.startsWith("DAILY_LIMIT:")) {
       const remaining = Number(error.message.split(":")[1] ?? 0);
