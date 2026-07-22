@@ -125,8 +125,8 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "Solana", code: "SOL", network: "SOLANA", displayNet: "Solana", min: 0.02, enabled: false, soon: true },
   { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: true, soon: false },
   { name: "XRP", code: "XRP", network: "XRPL", displayNet: "XRP Ledger", min: 1, enabled: false, soon: true },
-  { name: "Dogecoin", code: "DOGE", network: "DOGECOIN", displayNet: "Dogecoin", min: 10, enabled: false, soon: true },
-  { name: "Bitcoin Cash", code: "BCH", network: "BITCOINCASH", displayNet: "Bitcoin Cash", min: 0.001, enabled: false, soon: true },
+  { name: "Dogecoin", code: "DOGE", network: "DOGECOIN", displayNet: "Dogecoin", min: 10, enabled: true, soon: false },
+  { name: "Bitcoin Cash", code: "BCH", network: "BITCOINCASH", displayNet: "Bitcoin Cash", min: 0.001, enabled: true, soon: false },
 ] as const;
 
 export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
@@ -138,4 +138,6 @@ export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
   BNB: ["BEP20"], // native BNB on BSC (self-paying)
   POL: ["POLYGON"], // native POL on Polygon (self-paying)
   LTC: ["LITECOIN"], // native LTC (deposit live; withdrawal pending signer)
+  DOGE: ["DOGECOIN"], // native DOGE (deposit live; withdrawal pending signer)
+  BCH: ["BITCOINCASH"], // native BCH, CashAddr (deposit live; withdrawal pending signer)
 };

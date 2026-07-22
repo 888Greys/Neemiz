@@ -66,3 +66,50 @@ export function ltcP2PKHFromPubKey(publicKeyHex: string): string {
 export function dogeP2PKHFromPubKey(publicKeyHex: string): string {
   return p2pkhFromPubKey(publicKeyHex, P2PKH_VERSION.DOGE);
 }
+
+// ── Bitcoin Cash CashAddr (bech32-style) ──────────────────────────────────────
+// BCH legacy P2PKH shares BTC's 0x00 version byte, so it MUST use CashAddr to be
+// unambiguous. Verified against the canonical spec vector (hash160 of
+// 1BpEi6DfDAUFd7GtittLSdBeYJvcoaVggu → bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a).
+const CASHADDR_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+function cashaddrPolymod(data: number[]): bigint {
+  const MASK = BigInt("0x07ffffffff");
+  const GEN = [
+    BigInt("0x98f2bc8e61"), BigInt("0x79b76d99e2"), BigInt("0xf33e5fb3c4"),
+    BigInt("0xae2eabe2a8"), BigInt("0x1e4f43e470"),
+  ];
+  let c = BigInt(1);
+  for (const d of data) {
+    const c0 = Number(c >> BigInt(35));
+    c = ((c & MASK) << BigInt(5)) ^ BigInt(d);
+    for (let b = 0; b < 5; b++) if (c0 & (1 << b)) c ^= GEN[b];
+  }
+  return c ^ BigInt(1);
+}
+
+function cashaddrConvertBits(data: number[]): number[] {
+  let acc = 0, bits = 0;
+  const out: number[] = [];
+  for (const v of data) {
+    acc = ((acc << 8) | v) >>> 0;
+    bits += 8;
+    while (bits >= 5) { bits -= 5; out.push((acc >> bits) & 0x1f); }
+  }
+  if (bits > 0) out.push((acc << (5 - bits)) & 0x1f);
+  return out;
+}
+
+/** secp256k1 public key → Bitcoin Cash CashAddr (bitcoincash:q…). P2PKH, version 0. */
+export function bchCashAddrFromPubKey(publicKeyHex: string): string {
+  const pubKey  = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
+  const sha     = createHash("sha256").update(pubKey).digest();
+  const hash160 = createHash("ripemd160").update(sha).digest();
+  const payload5 = cashaddrConvertBits([0x00, ...hash160]); // versionByte 0x00 = P2PKH/160-bit
+  const prefix   = "bitcoincash";
+  const prefixExpand = [...prefix].map((ch) => ch.charCodeAt(0) & 0x1f);
+  const mod = cashaddrPolymod([...prefixExpand, 0, ...payload5, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const checksum: number[] = [];
+  for (let i = 0; i < 8; i++) checksum.push(Number((mod >> BigInt(5 * (7 - i))) & BigInt(0x1f)));
+  return `${prefix}:${[...payload5, ...checksum].map((d) => CASHADDR_CHARSET[d]).join("")}`;
+}
