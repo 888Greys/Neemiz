@@ -36,40 +36,41 @@ describe("wallet deposit options", () => {
     expect(DEPOSIT_METHOD_ROWS.some((r) => r.id === "mpesa")).toBe(true);
   });
 
-  it("offers Polygon USDT first because POL gas funds those withdrawals", () => {
+  it("offers Polygon USDT first, and lists every wired asset as live", () => {
     expect(CRYPTO_DEPOSIT_ASSETS[0]).toMatchObject({
       code: "USDT",
       network: "POLYGON",
       displayNet: "Polygon",
     });
-    // Live assets: the three stables/BTC plus native TRX (self-paying, signer live).
-    expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled)).toEqual([
-      expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true }),
-      expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true }),
-      expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true }),
-      expect.objectContaining({ code: "TRX", network: "TRC20", enabled: true }),
+    // Live rails: Polygon+BSC stables, native BTC/TRX/ETH/BNB/POL, and the UTXO
+    // natives LTC/DOGE/BCH (deposit via Tatum). Order matches CRYPTO_DEPOSIT_ASSETS.
+    const live = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled).map((a) => `${a.code}:${a.network}`);
+    expect(live).toEqual([
+      "USDT:POLYGON", "USDT:BEP20", "USDC:POLYGON", "BTC:BITCOIN", "TRX:TRC20",
+      "ETH:ERC20", "BNB:BEP20", "POL:POLYGON", "LTC:LITECOIN", "DOGE:DOGECOIN", "BCH:BITCOINCASH",
     ]);
   });
 
-  it("keeps the still-unwired natives as coming soon (never live until wired)", () => {
-    const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code);
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
-      expect(soon).toContain(code);
-    }
-    // TRX is now live, so it must NOT be in the soon set.
-    expect(soon).not.toContain("TRX");
+  it("keeps only SOL and XRP as coming soon (the last unwired natives)", () => {
+    const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code).sort();
+    expect(soon).toEqual(["SOL", "XRP"]);
     // Every soon asset must be disabled (no accidental live listing).
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).every((a) => !a.enabled)).toBe(true);
   });
 
-  it("allows address generation for live rails only (TRX now included, others not)", () => {
-    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
-    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
+  it("has an address-generation allowlist for exactly the live rails", () => {
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toEqual(["POLYGON", "BEP20"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.TRX).toEqual(["TRC20"]);
-    // Still-unwired natives must have no address-generation allowlist entry yet.
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.ETH).toEqual(["ERC20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BNB).toEqual(["BEP20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.POL).toEqual(["POLYGON"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.LTC).toEqual(["LITECOIN"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.DOGE).toEqual(["DOGECOIN"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BCH).toEqual(["BITCOINCASH"]);
+    // SOL/XRP are not deposit-enabled yet.
+    for (const code of ["SOL", "XRP"]) {
       expect(VALID_CRYPTO_DEPOSIT_NETWORKS[code]).toBeUndefined();
     }
   });

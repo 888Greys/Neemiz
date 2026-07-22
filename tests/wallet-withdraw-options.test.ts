@@ -5,28 +5,16 @@ import {
 } from "@/lib/wallet-withdraw-options";
 
 describe("wallet withdraw options", () => {
-  it("lists the Polygon stablecoins plus native Bitcoin and TRX", () => {
-    expect(CRYPTO_WITHDRAW_ASSETS).toEqual([
-      expect.objectContaining({
-        code: "USDT",
-        network: "POLYGON",
-        min: 1,
-      }),
-      expect.objectContaining({
-        code: "USDC",
-        network: "POLYGON",
-        min: 1,
-      }),
-      expect.objectContaining({
-        code: "BTC",
-        network: "BITCOIN",
-      }),
-      expect.objectContaining({
-        code: "TRX",
-        network: "TRC20",
-        min: 10,
-      }),
+  it("lists Polygon+BSC stables and native BTC/TRX/ETH/BNB/POL (UTXO natives are deposit-only)", () => {
+    const codes = CRYPTO_WITHDRAW_ASSETS.map((a) => `${a.code}:${a.network}`);
+    expect(codes).toEqual([
+      "USDT:POLYGON", "USDT:BEP20", "USDC:POLYGON", "BTC:BITCOIN", "TRX:TRC20",
+      "ETH:ERC20", "BNB:BEP20", "POL:POLYGON",
     ]);
+    // LTC/DOGE/BCH deposit works, but withdrawal waits on the UTXO signer; SOL/XRP unlisted.
+    for (const c of ["LTC", "DOGE", "BCH", "SOL", "XRP"]) {
+      expect(codes.some((x) => x.startsWith(`${c}:`))).toBe(false);
+    }
   });
 
   it("allows 1 USDT Polygon withdrawals for testing", () => {
@@ -43,10 +31,13 @@ describe("wallet withdraw options", () => {
 
   it("allows withdrawal only on deposit-enabled networks", () => {
     expect(VALID_CRYPTO_WITHDRAW_NETWORKS).toEqual({
-      USDT: ["POLYGON"],
+      USDT: ["POLYGON", "BEP20"],
       USDC: ["POLYGON"],
       BTC:  ["BITCOIN"],
       TRX:  ["TRC20"],
+      ETH:  ["ERC20"],
+      BNB:  ["BEP20"],
+      POL:  ["POLYGON"],
     });
   });
 });
