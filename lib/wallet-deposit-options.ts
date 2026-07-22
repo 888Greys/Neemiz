@@ -123,7 +123,7 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: true, soon: false },
   { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: true, soon: false },
   { name: "Solana", code: "SOL", network: "SOLANA", displayNet: "Solana", min: 0.02, enabled: false, soon: true },
-  { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: false, soon: true },
+  { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: true, soon: false },
   { name: "XRP", code: "XRP", network: "XRPL", displayNet: "XRP Ledger", min: 1, enabled: false, soon: true },
   { name: "Dogecoin", code: "DOGE", network: "DOGECOIN", displayNet: "Dogecoin", min: 10, enabled: false, soon: true },
   { name: "Bitcoin Cash", code: "BCH", network: "BITCOINCASH", displayNet: "Bitcoin Cash", min: 0.001, enabled: false, soon: true },
@@ -137,4 +137,5 @@ export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
   ETH: ["ERC20"], // native ETH on Ethereum (self-paying)
   BNB: ["BEP20"], // native BNB on BSC (self-paying)
   POL: ["POLYGON"], // native POL on Polygon (self-paying)
+  LTC: ["LITECOIN"], // native LTC (deposit live; withdrawal pending signer)
 };

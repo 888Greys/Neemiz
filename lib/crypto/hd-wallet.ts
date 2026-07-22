@@ -16,7 +16,7 @@
 import { db } from "@/lib/db";
 import { registerMoralisEvmAddress } from "@/lib/crypto/moralis";
 import { registerTatumAddress } from "@/lib/crypto/tatum";
-import { deriveEVMAddress, deriveTronAddress, deriveBTCAddress } from "@/lib/crypto/xpub";
+import { deriveEVMAddress, deriveTronAddress, deriveBTCAddress, deriveAddress } from "@/lib/crypto/xpub";
 
 async function registerRealtimeDepositAddress(address: string, network: string) {
   if (["ERC20", "BEP20", "POLYGON"].includes(network)) {
@@ -27,7 +27,7 @@ async function registerRealtimeDepositAddress(address: string, network: string) 
     return;
   }
 
-  if (["BITCOIN", "TRC20"].includes(network)) {
+  if (["BITCOIN", "TRC20", "LITECOIN", "DOGECOIN", "BITCOINCASH"].includes(network)) {
     const result = await registerTatumAddress(address, network);
     if (!result.ok && !result.skipped) {
       console.warn(`[tatum] failed to register ${address}: ${result.error ?? result.status}`);
@@ -82,7 +82,9 @@ export async function getOrCreateDepositAddress(
 
   const isTron = network === "TRC20";
   const isBTC  = network === "BITCOIN";
-  const isEvm  = !isTron && !isBTC;
+  // EVM = the three chains that share one derived address. UTXO natives
+  // (LITECOIN/DOGECOIN) are NOT EVM — they each get their own derived address.
+  const isEvm  = ["ERC20", "BEP20", "POLYGON"].includes(network);
 
   if (isEvm) {
     // Reuse the same EVM address for this user across ERC20/BEP20/POLYGON
@@ -102,9 +104,12 @@ export async function getOrCreateDepositAddress(
   // New slot — use count as next index (index 0 is reserved for hot wallet)
   // Add 1 so user addresses start at 1+
   const index   = (await db.cryptoDepositAddress.count()) + 1;
+  // UTXO natives (LTC/DOGE) get their own derived address per network, like BTC;
+  // deriveAddress routes by network (TRC20/BITCOIN/LITECOIN/DOGECOIN/EVM).
   const address = isTron ? deriveTronAddress(index)
                 : isBTC  ? deriveBTCAddress(index)
-                :           deriveEVMAddress(index);
+                : isEvm  ? deriveEVMAddress(index)
+                :           deriveAddress(index, network);
 
   await db.cryptoDepositAddress.create({
     data: { userId, crypto, network, address, hdIndex: index },

@@ -497,6 +497,82 @@ export async function checkBTCDeposits(
   return results;
 }
 
+// ─── UTXO chains via Tatum (Litecoin, Dogecoin, Bitcoin Cash) ────────────────
+// Same money-model as BTC but detected through Tatum's REST API. Tatum returns
+// each output `value` as a DECIMAL coin string (e.g. "2.2865115" LTC), NOT
+// satoshis — so we credit it as-is (no /1e8). Sender is inputs[0].coin.address.
+const TATUM_API = "https://api.tatum.io";
+const TATUM_UTXO_CHAIN: Record<string, string> = {
+  LITECOIN:    "litecoin",
+  DOGECOIN:    "dogecoin",
+  BITCOINCASH: "bcash",
+};
+
+interface TatumUtxoTx {
+  hash?: string;
+  blockNumber?: number | null;
+  time?: number;
+  outputs?: { address?: string; value?: string }[];
+  inputs?: { coin?: { address?: string } }[];
+}
+
+async function tatumFetch<T>(path: string): Promise<T | null> {
+  const apiKey = process.env.TATUM_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${TATUM_API}${path}`, {
+      headers: { "x-api-key": apiKey },
+      cache:   "no-store",
+      signal:  AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function checkTatumUtxoDeposits(
+  address: string,
+  network: string,
+  opts: DepositCheckOptions = {},
+): Promise<DepositTx[]> {
+  const chain = TATUM_UTXO_CHAIN[network];
+  if (!chain) return [];
+
+  let txs: TatumUtxoTx[] | null;
+  if (opts.txHash) {
+    const tx = await tatumFetch<TatumUtxoTx>(`/v3/${chain}/transaction/${opts.txHash}`);
+    txs = tx?.hash ? [tx] : [];
+  } else {
+    txs = await tatumFetch<TatumUtxoTx[]>(`/v3/${chain}/transaction/address/${address}?pageSize=50`);
+  }
+  if (!Array.isArray(txs)) return [];
+
+  const results: DepositTx[] = [];
+  for (const tx of txs) {
+    if (!tx?.hash || !Array.isArray(tx.outputs)) continue;
+    const confirmed = tx.blockNumber != null;
+    const from      = tx.inputs?.[0]?.coin?.address ?? "";
+    const timestamp = (tx.time ?? Math.floor(Date.now() / 1000)) * 1000;
+    tx.outputs.forEach((out, index) => {
+      if (out?.address !== address) return;
+      const amount = Number(out.value ?? 0);
+      if (!(amount > 0)) return;
+      results.push({ txHash: tx.hash!, amount: amount.toFixed(8), from, timestamp, logIndex: String(index), confirmed });
+    });
+  }
+  return results;
+}
+
+async function getTatumUtxoBalance(address: string, network: string): Promise<number> {
+  const chain = TATUM_UTXO_CHAIN[network];
+  if (!chain) return 0;
+  const data = await tatumFetch<{ balance?: string }>(`/v3/${chain}/address/balance/${address}`);
+  const bal  = Number(data?.balance ?? 0);
+  return Number.isFinite(bal) && bal >= 0 ? bal : 0;
+}
+
 // ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
@@ -506,6 +582,7 @@ export async function checkDeposits(
   opts: DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
   if (network === "BITCOIN") return checkBTCDeposits(address, opts);
+  if (TATUM_UTXO_CHAIN[network]) return checkTatumUtxoDeposits(address, network, opts);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address, opts);
     return checkTronTRC20Deposits(address, crypto, opts);
@@ -576,6 +653,7 @@ export async function tryGetOnChainBalance(
   try {
     let bal: number;
     if (network === "BITCOIN")            bal = await getBTCBalance(address);
+    else if (TATUM_UTXO_CHAIN[network])   bal = await getTatumUtxoBalance(address, network);
     else if (network === "TRC20" && crypto === "TRX") bal = await getTRXBalance(address);
     else if (network === "TRC20")         bal = await getTRC20Balance(address, crypto);
     else                                  bal = await getEVMBalance(address, crypto, network);

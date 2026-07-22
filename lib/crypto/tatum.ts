@@ -10,12 +10,17 @@ function getWebhookUrl(): string {
 function tatumChainForNetwork(network: string): string | null {
   if (network === "BITCOIN") return "BTC";
   if (network === "TRC20") return "TRON";
+  if (network === "LITECOIN") return "LTC";
+  if (network === "DOGECOIN") return "DOGE";
+  if (network === "BITCOINCASH") return "BCH";
   return null;
 }
 
 function tatumSubscriptionTypesForNetwork(network: string): string[] {
   if (network === "BITCOIN") return ["INCOMING_NATIVE_TX"];
   if (network === "TRC20") return ["INCOMING_NATIVE_TX", "INCOMING_FUNGIBLE_TX"];
+  // UTXO natives — same single incoming-native subscription as BTC.
+  if (network === "LITECOIN" || network === "DOGECOIN" || network === "BITCOINCASH") return ["INCOMING_NATIVE_TX"];
   return [];
 }
 
