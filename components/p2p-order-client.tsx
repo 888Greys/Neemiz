@@ -1288,13 +1288,19 @@ function MobileP2POrderView({
 
       {canMarkPaid && (
         <div className="mb-4">
-          <label className="mb-1.5 block text-[11px] font-bold text-slate-500">Transaction reference optional</label>
+          <label className="mb-1.5 block text-[11px] font-bold text-slate-500">
+            {/mpesa/i.test(order.paymentMethod ?? "") ? "M-Pesa confirmation code" : "Payment reference"}
+            <span className="text-red-400"> · required</span>
+          </label>
           <input
             value={paidRef}
             onChange={(e) => setPaidRef(e.target.value)}
-            placeholder="M-Pesa confirmation code"
+            placeholder={/mpesa/i.test(order.paymentMethod ?? "") ? "e.g. SDA4K2X9PT" : "Reference from your receipt"}
             className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#18191f] px-3 text-sm text-white outline-none placeholder:text-slate-700"
           />
+          <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+            You must enter the payment {/mpesa/i.test(order.paymentMethod ?? "") ? "confirmation code" : "reference"} before marking as paid — the seller verifies it before releasing crypto.
+          </p>
         </div>
       )}
 
@@ -1327,11 +1333,11 @@ function MobileP2POrderView({
         {canMarkPaid && (
           <button
             type="button"
-            disabled={!!actionLoading}
+            disabled={!!actionLoading || !paidRef.trim()}
             onClick={() => onAction("paid", { paymentRef: paidRef || null }, "paid")}
             className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white disabled:opacity-50 hover:bg-[#0570e8] transition-colors"
           >
-            {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
+            {actionLoading === "paid" ? "Confirming..." : !paidRef.trim() ? "Enter payment reference first" : "Payment Completed"}
           </button>
         )}
         {canRelease && (
