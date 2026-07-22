@@ -8,7 +8,6 @@
 import { createHash } from "crypto";
 import { EVM_TOKENS } from "@/lib/crypto/token-registry";
 
-const ETHERSCAN = "https://api.etherscan.io/v2/api";
 const TRONGRID  = "https://api.trongrid.io";
 
 // ─── Tron TRC-20 token contracts ──────────────────────────────────────────────
@@ -219,10 +218,10 @@ export async function checkEVMDeposits(
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return [];
-  // ALL EVM token deposits (USDT/USDC on Polygon, BSC, Ethereum) are detected via
-  // public-RPC eth_getLogs / eth_getTransactionReceipt — NOT the Etherscan key,
-  // which has a hard daily cap that, once hit, silently stopped crediting every
-  // EVM deposit platform-wide. Native (no contract) still uses Etherscan below.
+  // EVM TOKEN deposits (USDT/USDC/… on Polygon, BSC, Ethereum) — detected via
+  // public-RPC eth_getLogs / eth_getTransactionReceipt, NOT the Etherscan key
+  // (its hard daily cap once exhausted silently stopped crediting every EVM
+  // deposit platform-wide).
   if (token.contract) {
     return checkBscTokenDeposits(address, crypto, network, {
       backfill: opts.backfillBep20 ?? opts.backfill,
@@ -230,55 +229,12 @@ export async function checkEVMDeposits(
     });
   }
 
-  const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (!apiKey) throw new Error("ETHERSCAN_API_KEY not set");
-
-  const url = new URL(ETHERSCAN);
-  url.searchParams.set("chainid", String(token.chainId));
-  url.searchParams.set("module",  "account");
-  url.searchParams.set("address", address);
-  url.searchParams.set("sort",    "desc");
-  url.searchParams.set("apikey",  apiKey);
-
-  const isNative = !token.contract;
-
-  if (isNative) {
-    url.searchParams.set("action", "txlist");
-  } else {
-    url.searchParams.set("action",          "tokentx");
-    url.searchParams.set("contractaddress", token.contract);
-  }
-
-  const res  = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) return [];
-  const data = await res.json();
-  if (data.status !== "1" || !Array.isArray(data.result)) return [];
-
-  if (isNative) {
-    return (data.result as Record<string, string>[])
-      .filter((tx) =>
-        tx.to?.toLowerCase() === address.toLowerCase() &&
-        tx.isError === "0" &&
-        Number(tx.value) > 0,
-      )
-      .map((tx) => ({
-        txHash:    tx.hash,
-        amount:    (Number(BigInt(tx.value)) / 1e18).toFixed(8),
-      from:      tx.from,
-      timestamp: Number(tx.timeStamp) * 1000,
-      logIndex:  tx.transactionIndex,
-    }));
-  }
-
-  return (data.result as Record<string, string>[])
-    .filter((tx) => tx.to?.toLowerCase() === address.toLowerCase())
-    .map((tx) => ({
-      txHash:    tx.hash,
-      amount:    (Number(tx.value) / 10 ** Number(tx.tokenDecimal)).toFixed(6),
-      from:      tx.from,
-      timestamp: Number(tx.timeStamp) * 1000,
-      logIndex:  tx.logIndex,
-    }));
+  // NATIVE EVM coins (ETH/BNB/POL, no contract) emit no logs and public RPC has
+  // no txs-by-address method, so they are NOT scanned here. They are credited in
+  // real time by Moralis (webhook) and reconciled by the balance-diff backstop
+  // (lib/crypto/native-evm-reconcile). This keeps the deposit-checker 100%
+  // Etherscan-free.
+  return [];
 }
 
 // ─── Tron TRC-20 tokens via TronGrid ─────────────────────────────────────────
