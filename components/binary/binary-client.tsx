@@ -309,7 +309,13 @@ function pickDefaultTradeType(liveTypes: TradeTypeId[]): TradeTypeId {
   return preferred.find((id) => liveTypes.includes(id)) ?? liveTypes[0] ?? "even_odd";
 }
 const TICK_SECONDS = 1;
-const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
+// Deriv's public options feed — the ONLY client endpoint that still serves
+// synthetic indices (1HZ*, R_*). The legacy `ws.derivws.com/websockets/v3`
+// endpoint (any app_id, incl. 1089) now rejects every synthetic with
+// "InvalidSymbol: Symbol … is invalid", which dropped the chart to REST
+// fallback and showed that warning. This matches the server feed
+// (lib/deriv-feed.ts) and forex-client, which already use it and work.
+const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 
 function seedTicks(market: BinaryMarket): Tick[] {
   let quote = market.price;
