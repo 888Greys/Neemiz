@@ -32,6 +32,8 @@ export interface DepositTx {
 
 interface DepositCheckOptions {
   backfillBep20?: boolean;
+  /** Wider historical scan for any EVM token chain (catch-up after an outage). */
+  backfill?:      boolean;
   txHash?:        string;
 }
 
@@ -217,9 +219,13 @@ export async function checkEVMDeposits(
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return [];
-  if (token.chainId === 56 && token.contract) {
+  // ALL EVM token deposits (USDT/USDC on Polygon, BSC, Ethereum) are detected via
+  // public-RPC eth_getLogs / eth_getTransactionReceipt — NOT the Etherscan key,
+  // which has a hard daily cap that, once hit, silently stopped crediting every
+  // EVM deposit platform-wide. Native (no contract) still uses Etherscan below.
+  if (token.contract) {
     return checkBscTokenDeposits(address, crypto, network, {
-      backfill: opts.backfillBep20,
+      backfill: opts.backfillBep20 ?? opts.backfill,
       txHash:   opts.txHash,
     });
   }
