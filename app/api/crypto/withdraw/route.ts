@@ -24,6 +24,9 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   USDC: 1,
   BTC:  0.0002, // above dust + a typical miner fee
   TRX:  10,     // leaves headroom above the ~0.3 TRX bandwidth/burn fee
+  ETH:  0.01,   // L1 gas is dear — keep the min well above a send's gas cost
+  BNB:  0.02,   // BSC gas headroom
+  POL:  5,      // Polygon gas headroom
 };
 
 // Keep the platform fee configurable. It is disabled while withdrawals are
