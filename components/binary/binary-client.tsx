@@ -2294,7 +2294,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           setTransactions(prevTx);
           const err = data.error ?? "Could not place trade";
           if (isCalmDigitAvailabilityReject(err)) {
-            // Soft gate — no toast sermon; hop/dim handles UX.
+            toast.info("Contract shifted", "Try again or pick another side.");
           } else {
             toast.error("Trade failed", err);
           }
