@@ -34,13 +34,35 @@ export function evmToTron(evm: string): string {
   return base58Encode(Buffer.concat([raw, h2.slice(0, 4)]));
 }
 
-/** secp256k1 public key (hex, with or without 0x) → legacy P2PKH Bitcoin address (1…). */
-export function btcP2PKHFromPubKey(publicKeyHex: string): string {
-  const pubKey   = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
-  const sha      = createHash("sha256").update(pubKey).digest();
-  const hash160  = createHash("ripemd160").update(sha).digest();
-  const versioned = Buffer.concat([Buffer.from([0x00]), hash160]);
+/**
+ * secp256k1 public key (hex) → base58check P2PKH address for any Bitcoin-family
+ * chain. The only thing that varies between BTC/LTC/DOGE legacy addresses is the
+ * one-byte version prefix; the hash160 + double-sha256 checksum are identical.
+ */
+export function p2pkhFromPubKey(publicKeyHex: string, version: number): string {
+  const pubKey    = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
+  const sha       = createHash("sha256").update(pubKey).digest();
+  const hash160   = createHash("ripemd160").update(sha).digest();
+  const versioned = Buffer.concat([Buffer.from([version]), hash160]);
   const chk1 = createHash("sha256").update(versioned).digest();
   const chk2 = createHash("sha256").update(chk1).digest();
   return base58Encode(Buffer.concat([versioned, chk2.slice(0, 4)]));
+}
+
+// Legacy P2PKH version bytes (BIP44 coin types differ from these — see xpub.ts).
+export const P2PKH_VERSION = { BTC: 0x00, LTC: 0x30, DOGE: 0x1e } as const;
+
+/** secp256k1 public key → legacy P2PKH Bitcoin address (1…). */
+export function btcP2PKHFromPubKey(publicKeyHex: string): string {
+  return p2pkhFromPubKey(publicKeyHex, P2PKH_VERSION.BTC);
+}
+
+/** secp256k1 public key → legacy P2PKH Litecoin address (L…). */
+export function ltcP2PKHFromPubKey(publicKeyHex: string): string {
+  return p2pkhFromPubKey(publicKeyHex, P2PKH_VERSION.LTC);
+}
+
+/** secp256k1 public key → legacy P2PKH Dogecoin address (D…). */
+export function dogeP2PKHFromPubKey(publicKeyHex: string): string {
+  return p2pkhFromPubKey(publicKeyHex, P2PKH_VERSION.DOGE);
 }
