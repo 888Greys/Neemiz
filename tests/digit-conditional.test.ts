@@ -164,3 +164,75 @@ describe("conditional Matches pricing removes the sticky-digit edge", () => {
     expect(rtpCond).toBeLessThanOrEqual(1);
   });
 });
+
+describe("conditional Differs pricing removes the sticky-digit edge", () => {
+  // Differs is the exact complement of Matches (win = exit ≠ target), priced near
+  // the 90% cap, so it uses the production Differs config: raised win-prob cap and
+  // the thin 2.5% edge floor. On a sticky series a target chosen AWAY from the
+  // sticky entry digit wins more than the unconditional ~90% the price assumes.
+  const cfgD = { ...cfg, maxWinProb: 0.98, edgeFloor: 0.025 };
+  const TARGETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  // Conditional P(win | entry) = P(exit ≠ target | entry), one pass over the series.
+  const dWins = new Map<string, number>(), dCnt = new Map<string, number>();
+  for (let i = 0; i + DUR < digits.length; i++) {
+    const e = digits[i], x = digits[i + DUR];
+    for (const t of TARGETS) {
+      const k = `${t}:${e}`;
+      dCnt.set(k, (dCnt.get(k) ?? 0) + 1);
+      if (x !== t) dWins.set(k, (dWins.get(k) ?? 0) + 1);
+    }
+  }
+  const condWinD = (t: number, e: number) => (dWins.get(`${t}:${e}`) ?? 0) / (dCnt.get(`${t}:${e}`) ?? 1);
+
+  it("prices Differs on a favorable (non-sticky) target no higher than unconditional", () => {
+    // Entry digit 5 on a sticky series ⇒ exit rarely lands on a far digit like 0,
+    // so Differs target 0 wins MORE than average; its conditional payout must not
+    // exceed the unconditional one.
+    const uncond = priceDigitContract("Differs", 0, DUR, ticks, cfgD);
+    const cond = priceDigitContract("Differs", 0, DUR, ticks, cfgD, 1, 5);
+    // Both may reject (near-certain) — only assert ordering when both priced.
+    if (uncond.accepted && cond.accepted) {
+      expect(cond.payoutMultiplier).toBeLessThanOrEqual(uncond.payoutMultiplier);
+    } else {
+      expect(cond.accepted).toBe(false); // conditional never MORE generous
+    }
+  });
+
+  it("holds Differs RTP ≤ 1 against an adaptive exploiter (vs > 1 unconditionally)", () => {
+    const mult = new Map<string, number | null>();
+    const multFor = (entry: number, t: number): number | null => {
+      const key = `${entry}:${t}`;
+      if (mult.has(key)) return mult.get(key)!;
+      const q = entry < 0
+        ? priceDigitContract("Differs", t, DUR, ticks, cfgD)
+        : priceDigitContract("Differs", t, DUR, ticks, cfgD, 1, entry);
+      const m = q.accepted ? q.payoutMultiplier : null;
+      mult.set(key, m);
+      return m;
+    };
+
+    const simulate = (conditional: boolean): number => {
+      let staked = 0, paid = 0;
+      for (let i = 0; i + DUR < digits.length; i++) {
+        const e = digits[i];
+        let best = { ev: -1, t: 0, m: 0 };
+        for (const t of TARGETS) {
+          const m = multFor(conditional ? e : -1, t);
+          if (m == null) continue;
+          const ev = condWinD(t, e) * m;   // exploiter's TRUE conditional EV
+          if (ev > best.ev) best = { ev, t, m };
+        }
+        if (best.ev < 0) continue;
+        staked += 1;
+        if (digits[i + DUR] !== best.t) paid += best.m;
+      }
+      return staked > 0 ? paid / staked : 0;
+    };
+
+    const rtpUncond = simulate(false);
+    const rtpCond = simulate(true);
+    expect(rtpUncond).toBeGreaterThan(1);   // unconditional Differs bleeds to the exploiter
+    expect(rtpCond).toBeLessThanOrEqual(1); // conditional pricing holds the house edge
+  });
+});

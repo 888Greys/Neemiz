@@ -151,8 +151,22 @@ describe("POST /api/binary/quote", () => {
 
   it("returns accepted:false for Matches when the stability gate trips (no fake payout)", async () => {
     // ~17.5% target digit — outside [8%, 12%], same shape as Vol-10 digit-6 reports.
-    const skewed = Array.from({ length: 800 }, (_, i) => {
-      const d = i < 140 ? 6 : i % 10 === 6 ? 0 : i % 10;
+    // Seeded + NON-autocorrelated (digit 6 over-represented, rest uniform): this
+    // trips the Matches stability gate while leaving Differs a genuine ~82% bet.
+    // Differs is now priced CONDITIONALLY on the entry digit (see server-price),
+    // so the series must be long enough for ≥100 conditional windows per entry
+    // digit — a periodic/degenerate series would make conditional Differs
+    // near-certain and correctly reject. 2000 ticks gives ample conditional depth.
+    let seed = 0x9e3779b9;
+    const rand = () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const otherDigits = [0, 1, 2, 3, 4, 5, 7, 8, 9];
+    const skewed = Array.from({ length: 2000 }, () => {
+      const d = rand() < 0.175 ? 6 : otherDigits[Math.floor(rand() * 9)];
       return Number((1000 + d / 100).toFixed(2));
     });
     vi.mocked(getCalibrationTicks).mockResolvedValue({
