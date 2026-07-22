@@ -2594,9 +2594,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
               </span>
             </button>
 
-            {/* Manual vs Auto toggle — desktop only; mobile keeps the Deriv-style
-                minimal surface (Even/Odd · Duration · Stake · Buy). */}
-            <div className="hidden shrink-0 gap-1 border-b border-white/[0.07] px-3 py-1.5 sm:flex">
+            {/* Manual vs Auto toggle — shown on every breakpoint. Mobile users
+                need the auto-trader too; the panel below scrolls within the dock. */}
+            <div className="flex shrink-0 gap-1 border-b border-white/[0.07] px-3 py-1.5">
               {([["Manual", false], ["Auto", true]] as const).map(([label, val]) => (
                 <button
                   key={label}
@@ -2630,7 +2630,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             </div>
 
             {autoMode ? (
-              <AutoPanel currency={currency.symbol} />
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+                <AutoPanel currency={currency.symbol} />
+              </div>
             ) : tradeType === "accumulators" ? (
               <AccumulatorsPanel
                 currency={currency.symbol}
