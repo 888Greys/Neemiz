@@ -105,8 +105,20 @@ function mapTatumCoin(input: {
   const contract = input.contractAddress?.toLowerCase();
   const symbol = normalizeAsset(input.tokenSymbol ?? input.asset ?? input.currency);
 
+  if (chain.includes("bitcoin cash") || chain.includes("bitcoin-cash") || chain === "bcash" || chain === "bch" || symbol === "BCH") {
+    return { crypto: "BCH", network: "BITCOINCASH" };
+  }
+
   if (chain.includes("bitcoin") || chain === "btc" || symbol === "BTC") {
     return { crypto: "BTC", network: "BITCOIN" };
+  }
+
+  if (chain.includes("litecoin") || chain === "ltc" || symbol === "LTC") {
+    return { crypto: "LTC", network: "LITECOIN" };
+  }
+
+  if (chain.includes("doge") || chain === "doge" || symbol === "DOGE") {
+    return { crypto: "DOGE", network: "DOGECOIN" };
   }
 
   if (chain.includes("tron") || chain === "trx" || symbol === "TRX" || TRON_USDT_CONTRACTS.has(contract ?? "")) {
@@ -136,7 +148,7 @@ function normalizeTatumPayload(payload: TatumWebhookPayload): NormalizedTatumDep
   if (!txHash || !to) return null;
 
   const amount = data?.amount ?? payload.amount;
-  const decimals = Number(data?.tokenMetadata?.decimals ?? (coin.crypto === "BTC" ? 8 : 6));
+  const decimals = Number(data?.tokenMetadata?.decimals ?? (["BTC", "LTC", "DOGE", "BCH"].includes(coin.crypto) ? 8 : 6));
   const parsedAmount = amount != null
     ? Number(amount)
     : rawUnitsToNumber(data?.value, Number.isFinite(decimals) ? decimals : 6);
