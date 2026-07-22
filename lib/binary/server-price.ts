@@ -312,8 +312,20 @@ export function priceDigitServer(params: {
 
   // Matches always prices conditionally (sticky entry=target was RTP ~3.4 live).
   // Over/Under use conditional when entryDigit is supplied (bet route always does).
+  // Differs is the exact complement of Matches — win = exit ≠ target — so the
+  // same last-digit autocorrelation that makes Matches "priced unconditionally,
+  // played conditionally" leak applies in mirror: a target chosen away from a
+  // sticky entry digit wins slightly more often than the unconditional ~90% the
+  // price assumes. It is not leaking today (14d RTP ~0.94 on high-volume markets)
+  // because the thin 2.5% floor + Wilson-upper cushion still covers the drift,
+  // but it is the one digit contract left priced unconditionally. Price it
+  // conditionally too so it stays house-safe under any future stickier regime;
+  // if too few matching-entry windows exist, priceDigitContract fails closed
+  // (rejects) rather than quoting on a thin estimate.
   const condEntry =
-    side === "Matches" || side === "Over" || side === "Under" ? entryDigit : undefined;
+    side === "Matches" || side === "Over" || side === "Under" || side === "Differs"
+      ? entryDigit
+      : undefined;
   const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg, 1, condEntry);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
