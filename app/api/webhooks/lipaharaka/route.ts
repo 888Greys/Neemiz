@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { bokDb } from "@/lib/db-bok";
 import { mbkDb } from "@/lib/db-mbk";
 import { binarymarketDb } from "@/lib/db-binarymarket";
+import { alphaoptionskeDb } from "@/lib/db-alphaoptionske";
 import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
 import { normalizeKenyanPhone } from "@/lib/lipaharaka";
 
@@ -186,6 +187,8 @@ export async function POST(req: Request) {
   if (mbk) clients.push({ name: "moneybinaryke", client: mbk });
   const bm = binarymarketDb();
   if (bm) clients.push({ name: "binarymarket", client: bm });
+  const ao = alphaoptionskeDb();
+  if (ao) clients.push({ name: "alphaoptionske", client: ao });
 
   for (const { name, client } of clients) {
     const tx = await findLipaTx(client, reference, phone, amount, body);

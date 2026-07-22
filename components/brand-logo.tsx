@@ -28,6 +28,16 @@ function renderBinaryLogo(brand: string, sizeClass: string, className: string) {
       </span>
     );
   }
+  // AlphaOptionsKE: "Alpha" in gold, "OptionsKE" in white
+  if (brand === "AlphaOptionsKE") {
+    return (
+      <span className={`inline-flex items-baseline gap-0 font-black tracking-tight ${sizeClass} ${className}`}>
+        <span className="text-[#fbbf24]">Alpha</span>
+        <span className="text-white">OptionsKE</span>
+        <span className="sr-only">{brand}</span>
+      </span>
+    );
+  }
   // Other binary brands: "Binary" portion in lime, rest in white
   const idx = brand.toLowerCase().indexOf("binary");
   if (idx === -1) {

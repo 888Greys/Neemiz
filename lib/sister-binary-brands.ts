@@ -31,10 +31,10 @@ export const SISTER_BINARY_BRANDS: SisterBinaryBrand[] = [
     status: "live",
   },
   {
-    id: "binary-site-4",
-    name: "Binary site 4",
-    domain: null,
-    status: "planned",
+    id: "alphaoptionske",
+    name: "AlphaOptionsKE",
+    domain: "alphaoptionske.com",
+    status: "live",
   },
 ];
 
