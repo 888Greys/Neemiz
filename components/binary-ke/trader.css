@@ -1,7 +1,7 @@
 /* BinaryOptionsKE trading UI — Olymp-inspired, mobile-first.
-   Scoped to html[data-surface="binary"]:not([data-brand="BinaryMarket"]) so Nezeem /binary is untouched. */
+   Scoped to html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) so Nezeem /binary is untouched. */
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="MoneyBinary"]) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]):not([data-brand="MoneyBinary"]) {
   --bok-bg: #000000;
   --bok-panel: #0e0e0e;
   --bok-panel-2: #161616;
@@ -17,123 +17,123 @@ html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="Mo
   --bok-cta: linear-gradient(105deg, var(--bok-lime-deep) 0%, var(--bok-lime) 55%, #e8ff6a 100%);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) body {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) body {
   background: var(--bok-bg);
 }
 
 /* ── Remap Nezeem primary blue → landing lime (shell, modals, panels) ── */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#087cff\] {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#087cff\] {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
   box-shadow: none !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#1a85ff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#1a8cff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#1990ff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#2a90ff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#0570e8\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#0a6ef0\]:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#1a85ff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#1a8cff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#1990ff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#2a90ff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#0570e8\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#0a6ef0\]:hover {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
   filter: brightness(1.05);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#087cff\]\/10,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#087cff\]\/15,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#087cff\]\/\[0\.04\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#087cff\]\/\[0\.06\] {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#087cff\]\/10,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#087cff\]\/15,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#087cff\]\/\[0\.04\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#087cff\]\/\[0\.06\] {
   background-color: var(--bok-lime-soft) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#087cff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#5ea9ff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#75b8ff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#3aa0ff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#4fa8ff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:text-\[\#75b8ff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:text-\[\#4fa8ff\]:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:text-blue-400:hover,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .group-hover\:text-\[\#087cff\]:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#087cff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#5ea9ff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#75b8ff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#3aa0ff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#4fa8ff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:text-\[\#75b8ff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:text-\[\#4fa8ff\]:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:text-blue-400:hover,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .group-hover\:text-\[\#087cff\]:hover {
   color: var(--bok-lime) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/20,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/25,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/30,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/35,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/45,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/50,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/60,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#087cff\]\/70,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus\:ring-\[\#087cff\]\/40:focus,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus\:ring-\[\#087cff\]\/50:focus,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus\:ring-\[\#087cff\]\/60:focus,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-within\:ring-\[\#087cff\]\/45:focus-within,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-within\:ring-\[\#087cff\]\/50:focus-within,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-visible\:ring-\[\#087cff\]\/50:focus-visible,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-visible\:ring-\[\#087cff\]\/60:focus-visible,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-visible\:ring-\[\#087cff\]\/70:focus-visible {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/20,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/25,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/30,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/35,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/45,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/50,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/60,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#087cff\]\/70,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus\:ring-\[\#087cff\]\/40:focus,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus\:ring-\[\#087cff\]\/50:focus,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus\:ring-\[\#087cff\]\/60:focus,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-within\:ring-\[\#087cff\]\/45:focus-within,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-within\:ring-\[\#087cff\]\/50:focus-within,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-visible\:ring-\[\#087cff\]\/50:focus-visible,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-visible\:ring-\[\#087cff\]\/60:focus-visible,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-visible\:ring-\[\#087cff\]\/70:focus-visible {
   --tw-ring-color: rgba(184, 255, 42, 0.45) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .border-\[\#087cff\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .border-\[\#087cff\]\/20,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus\:border-\[\#087cff\]\/60:focus,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-within\:border-\[\#087cff\]\/60:focus-within {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .border-\[\#087cff\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .border-\[\#087cff\]\/20,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus\:border-\[\#087cff\]\/60:focus,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-within\:border-\[\#087cff\]\/60:focus-within {
   border-color: rgba(184, 255, 42, 0.55) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .shadow-blue-500\/20,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .shadow-\[\#087cff\]\/20,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .shadow-\[\#087cff\]\/25 {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .shadow-blue-500\/20,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .shadow-\[\#087cff\]\/20,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .shadow-\[\#087cff\]\/25 {
   --tw-shadow-color: rgba(184, 255, 42, 0.22) !important;
 }
 
 /* Sky / violet chrome leftovers inside the trader → lime */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-sky-500\/12,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-sky-500\/10,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-violet-500\/12,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-violet-500\/10,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-violet-500\/15 {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-sky-500\/12,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-sky-500\/10,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-violet-500\/12,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-violet-500\/10,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-violet-500\/15 {
   background-color: var(--bok-lime-soft) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .text-sky-300,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .text-violet-300 {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .text-sky-300,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .text-violet-300 {
   color: var(--bok-lime) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .ring-sky-400\/30,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .ring-sky-400\/45,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .ring-sky-400\/60,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .ring-violet-400\/25,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .ring-violet-400\/30,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .focus-within\:ring-sky-500\/40:focus-within,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .focus-within\:ring-sky-500\/50:focus-within {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .ring-sky-400\/30,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .ring-sky-400\/45,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .ring-sky-400\/60,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .ring-violet-400\/25,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .ring-violet-400\/30,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .focus-within\:ring-sky-500\/40:focus-within,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .focus-within\:ring-sky-500\/50:focus-within {
   --tw-ring-color: rgba(184, 255, 42, 0.45) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .bg-violet-600,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .hover\:bg-violet-500:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .bg-violet-600,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .hover\:bg-violet-500:hover {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .text-violet-500,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-trader .text-violet-500:checked {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .text-violet-500,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-trader .text-violet-500:checked {
   color: var(--bok-lime) !important;
   accent-color: var(--bok-lime);
 }
 
 /* Toast info tint */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .ring-\[\#3aa0ff\]\/20 {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .ring-\[\#3aa0ff\]\/20 {
   --tw-ring-color: rgba(184, 255, 42, 0.22) !important;
 }
 
 /* Dialog / modal primary CTA helper (Email verified, phone link, etc.) */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-dialog-cta {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-dialog-cta {
   border-radius: 9999px !important;
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
@@ -142,79 +142,79 @@ html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-dialog-cta {
   transition: filter 140ms var(--bok-ease), transform 120ms var(--bok-ease);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-dialog-cta:hover:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-dialog-cta:hover:not(:disabled) {
   filter: brightness(1.05);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-dialog-cta:active:not(:disabled) {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-dialog-cta:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-dialog-accent {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-dialog-accent {
   background-color: var(--bok-lime-soft) !important;
   color: var(--bok-lime) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-balance-chip {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-balance-chip {
   background: rgba(255, 255, 255, 0.04) !important;
   box-shadow: inset 0 0 0 1px rgba(184, 255, 42, 0.28) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-avatar-fallback {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-avatar-fallback {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
 }
 
 /* Design-token primary (Button) + mint finance CTAs → lime/yellow */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-primary {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-primary {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
   box-shadow: none !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-primary-container:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-primary-container:hover {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
   filter: brightness(1.05);
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-on-primary {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-on-primary {
   color: var(--bok-lime-ink) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .shadow-primary\/25 {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .shadow-primary\/25 {
   --tw-shadow-color: rgba(184, 255, 42, 0.22) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bg-\[\#05b957\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .hover\:bg-\[\#07cc63\]:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bg-\[\#05b957\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .hover\:bg-\[\#07cc63\]:hover {
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
   box-shadow: none !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .text-\[\#05b957\] {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .text-\[\#05b957\] {
   color: var(--bok-lime) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .focus-within\:ring-\[\#05b957\]\/50:focus-within {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .focus-within\:ring-\[\#05b957\]\/50:focus-within {
   --tw-ring-color: rgba(184, 255, 42, 0.45) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-wallet,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-wallet-sheet,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-mobile-drawer,
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-copy-panel {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-wallet,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-wallet-sheet,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-mobile-drawer,
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-copy-panel {
   background: var(--bok-bg) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-wallet .bg-\[\#151518\],
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-wallet-sheet .bg-\[\#151518\] {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-wallet .bg-\[\#151518\],
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-wallet-sheet .bg-\[\#151518\] {
   background: var(--bok-bg) !important;
 }
 
 /* ── App shell header: flush bar (no floating Nezeem pill) ───────── */
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) header.bok-shell-header {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) header.bok-shell-header {
   left: 0 !important;
   right: 0 !important;
   top: 0 !important;
@@ -230,24 +230,24 @@ html[data-surface="binary"]:not([data-brand="BinaryMarket"]) header.bok-shell-he
   backdrop-filter: blur(12px) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-shell-main-pad {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-shell-main-pad {
   padding-top: calc(3.25rem + env(safe-area-inset-top)) !important;
 }
 
 @media (min-width: 1024px) {
-  html[data-surface="binary"]:not([data-brand="BinaryMarket"]) header.bok-shell-header {
+  html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) header.bok-shell-header {
     height: 4.5rem !important;
     padding-top: 0 !important;
     background: #000 !important;
     backdrop-filter: none !important;
   }
 
-  html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-shell-main-pad {
+  html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-shell-main-pad {
     padding-top: 4.5rem !important;
   }
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-auth-login {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-auth-login {
   border-radius: 9999px !important;
   background: transparent !important;
   color: #fff !important;
@@ -255,13 +255,13 @@ html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-auth-login {
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-auth-join {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-auth-join {
   border-radius: 9999px !important;
   background: var(--bok-cta) !important;
   color: var(--bok-lime-ink) !important;
 }
 
-html[data-surface="binary"]:not([data-brand="BinaryMarket"]) .bok-auth-join:hover {
+html[data-surface="binary"]:not([data-brand="BinaryMarket"]):not([data-brand="AlphaOptionsKE"]) .bok-auth-join:hover {
   filter: brightness(1.05);
 }
 

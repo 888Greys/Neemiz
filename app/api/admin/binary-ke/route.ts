@@ -43,6 +43,9 @@ function getClient(brand: string): { client: PrismaClient | null; label: string;
   if (brand === "binarymarket") {
     return { client: binarymarketDb(), label: "BinaryMarket", siteUrl: "https://binarymarket.org" };
   }
+  if (brand === "alphaoptionske") {
+    return { client: alphaoptionskeDb(), label: "AlphaOptionsKE", siteUrl: "https://alphaoptionske.com" };
+  }
   return { client: bokDb(), label: "BinaryOptionsKE", siteUrl: "https://binaryoptionske.com" };
 }
 

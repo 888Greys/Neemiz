@@ -47,6 +47,44 @@ export default function AppleIcon() {
       );
     }
 
+    // AlphaOptionsKE: black bg + violet badge + gold "A"
+    if (brand === "AlphaOptionsKE") {
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#000000",
+              borderRadius: 40,
+            }}
+          >
+            <div
+              style={{
+                width: 120,
+                height: 120,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#7c3aed",
+                borderRadius: 28,
+                color: "#fbbf24",
+                fontSize: 72,
+                fontWeight: 800,
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              A
+            </div>
+          </div>
+        ),
+        { ...size },
+      );
+    }
+
     // BinaryOptionsKE (default binary): black bg + lime "B"
     return new ImageResponse(
       (

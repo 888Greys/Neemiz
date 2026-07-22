@@ -36,6 +36,32 @@ export default function Icon() {
       );
     }
 
+    // AlphaOptionsKE: deep violet bg + gold "A" (premium/elite brand)
+    if (brand === "AlphaOptionsKE") {
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#7c3aed",
+              borderRadius: 8,
+              color: "#fbbf24",
+              fontSize: 22,
+              fontWeight: 800,
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
+            A
+          </div>
+        ),
+        { ...size },
+      );
+    }
+
     // BinaryOptionsKE (default binary): black bg + lime "B"
     return new ImageResponse(
       (
