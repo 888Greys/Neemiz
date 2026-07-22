@@ -54,6 +54,7 @@ function hostLooksBinary(host: string | null | undefined): boolean {
   if (h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com")) return true;
   if (h === "moneybinaryke.com" || h.endsWith(".moneybinaryke.com")) return true;
   if (h === "binarymarket.org" || h.endsWith(".binarymarket.org")) return true;
+  if (h === "alphaoptionske.com" || h.endsWith(".alphaoptionske.com")) return true;
   return false;
 }
 

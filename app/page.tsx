@@ -5,6 +5,7 @@ import { isBinarySurface, surfaceBrand } from "@/lib/product-surface";
 import { BinaryKeLandingPage } from "@/components/binary-ke/landing-page";
 import { MoneyBinaryLandingPage } from "@/components/moneybinary/landing-page";
 import { BinaryMarketLandingPage } from "@/components/binarymarket/landing-page";
+import { AlphaOptionsKELandingPage } from "@/components/alphaoptionske/landing-page";
 
 // One image serves Nezeem + Binary brands; surface is chosen at runtime via env.
 // Must stay dynamic so Next never bakes a static "/" → /dashboard redirect.
@@ -34,6 +35,10 @@ export default async function RootPage() {
 
     if (brand === "BinaryMarket") {
       return <BinaryMarketLandingPage />;
+    }
+
+    if (brand === "AlphaOptionsKE") {
+      return <AlphaOptionsKELandingPage />;
     }
 
     return <BinaryKeLandingPage />;

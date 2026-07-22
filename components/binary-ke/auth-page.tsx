@@ -17,6 +17,7 @@ import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import "./auth.css";
 import "@/components/binarymarket/auth.css";
 import "@/components/moneybinary/auth.css";
+import "@/components/alphaoptionske/auth.css";
 
 export type BinaryKeAuthTab = "login" | "register";
 

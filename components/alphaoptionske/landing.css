@@ -1,0 +1,132 @@
+/* AlphaOptionsKE marketing landing — Premium/Elite: deep violet, gold accents.
+   Distinct from BinaryOptionsKE (dark/lime), MoneyBinary (white/green), and BinaryMarket (navy/blue/amber). */
+.alpha-landing {
+  --ao-bg: #0a0812;
+  --ao-surface: #131022;
+  --ao-surface-hover: #1b1530;
+  --ao-violet: #a855f7;
+  --ao-violet-deep: #7c3aed;
+  --ao-gold: #fbbf24;
+  --ao-gold-deep: #d97706;
+  --ao-ink: #ffffff;
+  --ao-muted: #a8a0b8;
+  --ao-line: rgba(255, 255, 255, 0.06);
+  --ao-glow: rgba(168, 85, 247, 0.35);
+  --ao-ease: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+
+  min-height: 100dvh;
+  background: var(--ao-bg);
+  color: var(--ao-ink);
+  font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.alpha-landing a {
+  text-decoration: none;
+}
+
+/* ── CTA buttons — gold gradient ── */
+.ao-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--ao-gold) 0%, var(--ao-gold-deep) 100%);
+  color: #1a0e00;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: transform 160ms var(--ao-ease), box-shadow 160ms var(--ao-ease);
+  box-shadow: 0 8px 28px -8px rgba(251, 191, 36, 0.35);
+}
+
+.ao-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px -6px rgba(251, 191, 36, 0.5);
+}
+
+.ao-cta:active {
+  transform: scale(0.97);
+}
+
+.ao-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1.5px solid rgba(168, 85, 247, 0.4);
+  color: var(--ao-violet);
+  font-weight: 700;
+  transition: border-color 160ms var(--ao-ease), background 160ms var(--ao-ease);
+}
+
+.ao-cta-outline:hover {
+  border-color: var(--ao-violet);
+  background: rgba(168, 85, 247, 0.08);
+}
+
+/* ── Glass card ── */
+.ao-card {
+  background: var(--ao-surface);
+  border: 1px solid var(--ao-line);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+}
+
+/* ── Feature cards ── */
+.ao-feat-card {
+  background: linear-gradient(145deg, var(--ao-surface), var(--ao-surface-hover));
+  border: 1px solid var(--ao-line);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem;
+  transition: border-color 200ms var(--ao-ease), transform 200ms var(--ao-ease);
+}
+
+.ao-feat-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ── Sections ── */
+.ao-section-title {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+/* ── Hero animations ── */
+.ao-rise {
+  animation: ao-rise 680ms var(--ao-ease) both;
+}
+
+.ao-rise-delay {
+  animation: ao-rise 740ms var(--ao-ease) 120ms both;
+}
+
+.ao-float {
+  animation: ao-float 5s ease-in-out infinite;
+}
+
+@keyframes ao-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ao-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ── Aurora glow backgrounds — violet ── */
+.ao-aurora-violet {
+  background: radial-gradient(ellipse 60% 60% at 30% 20%, rgba(168, 85, 247, 0.18), transparent 50%);
+}
+
+.ao-aurora-gold {
+  background: radial-gradient(ellipse 50% 50% at 80% 30%, rgba(251, 191, 36, 0.1), transparent 50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-rise, .ao-rise-delay, .ao-float {
+    animation: none !important;
+  }
+}

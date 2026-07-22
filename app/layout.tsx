@@ -15,6 +15,7 @@ import "./globals.css";
 import "@/components/binary-ke/trader.css";
 import "@/components/binarymarket/trader.css";
 import "@/components/moneybinary/trader.css";
+import "@/components/alphaoptionske/trader.css";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
