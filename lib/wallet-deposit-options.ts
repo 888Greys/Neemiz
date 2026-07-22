@@ -106,7 +106,7 @@ export const DEPOSIT_METHOD_ROWS: DepositMethodRow[] = depositRowsForCurrency("K
 // See docs/NATIVE-CRYPTO-LISTING-PLAN.md.
 export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "Tether USD", code: "USDT", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
-  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: false, soon: true },
+  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: true, soon: false },
   { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
   { name: "Bitcoin", code: "BTC", network: "BITCOIN", displayNet: "Bitcoin", min: 0.0001, enabled: true, soon: false },
   // Native coins — fees paid in the coin itself.
@@ -130,7 +130,7 @@ export const CRYPTO_DEPOSIT_ASSETS = [
 ] as const;
 
 export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
-  USDT: ["POLYGON"],
+  USDT: ["POLYGON", "BEP20"],
   USDC: ["POLYGON"],
   BTC: ["BITCOIN"],
   TRX: ["TRC20"], // native TRX on Tron (self-paying)
