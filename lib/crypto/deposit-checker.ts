@@ -496,23 +496,60 @@ async function getEVMBalance(address: string, crypto: string, network: string): 
   return Number(BigInt(hex)) / Math.pow(10, token.decimals);
 }
 
-async function getTRXBalance(address: string): Promise<number> {
+const TRONSCAN_API = "https://apilist.tronscanapi.com";
+
+// Fetch a Tron account from TronGrid. Returns the account object, or null when
+// the response is unusable (error / rate-limit / malformed / EMPTY data array).
+// CRITICAL: an empty `data: []` is treated as UNKNOWN (null), NOT balance 0 —
+// TronGrid returns empty for funded addresses under load, and a false 0 made the
+// reconcile claw back real deposits (goodhope's 28.6 TRX, 2026-07-22).
+async function tronGridAccount(address: string): Promise<Record<string, unknown> | null> {
   const apiKey  = process.env.TRONGRID_API_KEY;
   const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
-  const res = await fetch(`${TRONGRID}/v1/accounts/${address}`, { headers, cache: "no-store" });
-  const data = await res.json();
-  return (data?.data?.[0]?.balance ?? 0) / 1_000_000;
+  try {
+    const res = await fetch(`${TRONGRID}/v1/accounts/${address}`, { headers, cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.Error || !Array.isArray(data?.data) || data.data.length === 0) return null;
+    return data.data[0] as Record<string, unknown>;
+  } catch { return null; }
+}
+
+async function tronscanAccount(address: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(`${TRONSCAN_API}/api/account?address=${address}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch { return null; }
+}
+
+async function getTRXBalance(address: string): Promise<number> {
+  const acct = await tronGridAccount(address);
+  if (acct) return Number(acct.balance ?? 0) / 1_000_000;
+  // TronGrid unusable — cross-check Tronscan (authoritative) before giving up.
+  const ts = await tronscanAccount(address);
+  if (ts) return Number(ts.balance ?? 0) / 1_000_000;
+  // Both sources failed: THROW so tryGetOnChainBalance returns null and the
+  // reconcile SKIPS — never clamp a ledger to a guessed 0.
+  throw new Error(`TRX balance unavailable for ${address}`);
 }
 
 async function getTRC20Balance(address: string, crypto: string): Promise<number> {
   const contract = TRC20_CONTRACTS[crypto];
   if (!contract) return 0;
-  const apiKey  = process.env.TRONGRID_API_KEY;
-  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
-  const res  = await fetch(`${TRONGRID}/v1/accounts/${address}`, { headers, cache: "no-store" });
-  const data = await res.json();
-  const trc20  = data?.data?.[0]?.trc20 ?? [];
-  const token  = (trc20 as Record<string, string>[]).find((t) => Object.keys(t)[0] === contract);
+  const acct = await tronGridAccount(address);
+  if (!acct) {
+    // TronGrid unusable — cross-check Tronscan's TRC20 balances.
+    const res = await fetch(`${TRONSCAN_API}/api/account/tokens?address=${address}&type=trc20`, { cache: "no-store" }).catch(() => null);
+    if (res?.ok) {
+      const data = await res.json().catch(() => null) as { data?: Array<{ tokenId?: string; balance?: string; tokenDecimal?: number }> } | null;
+      const tok = data?.data?.find((t) => t.tokenId === contract);
+      if (data) return tok ? Number(tok.balance) / 10 ** (tok.tokenDecimal ?? 6) : 0;
+    }
+    throw new Error(`TRC20 balance unavailable for ${address} (${crypto})`);
+  }
+  const trc20 = (acct.trc20 as Record<string, string>[] | undefined) ?? [];
+  const token = trc20.find((t) => Object.keys(t)[0] === contract);
   if (!token) return 0;
   return Number(Object.values(token)[0]) / 1_000_000;
 }
