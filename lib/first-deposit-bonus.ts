@@ -19,7 +19,7 @@ import { REAL_DEPOSIT_PROVIDERS } from "@/lib/promo-lock";
  */
 export const FIRST_DEPOSIT_BONUS_CODE = "FIRSTDEPOSIT";
 
-const PCT = Number(process.env.FIRST_DEPOSIT_BONUS_PCT ?? 25);
+const PCT = Number(process.env.FIRST_DEPOSIT_BONUS_PCT ?? 50);
 const CAP_KES = Number(process.env.FIRST_DEPOSIT_BONUS_CAP_KES ?? 5000);
 
 type TxClient = Prisma.TransactionClient;
