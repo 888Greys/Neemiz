@@ -320,7 +320,7 @@ const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 function seedTicks(market: BinaryMarket): Tick[] {
   let quote = market.price;
   const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
-  const count = 350;
+  const count = 3600;
 
   return Array.from({ length: count }, (_, index) => {
     const wave = Math.sin(index / 5) * market.volatility * 2.5;
@@ -1039,7 +1039,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       setStreamStatus("fallback");
       setStreamError(message);
       fallbackTimer = window.setInterval(() => {
-        setTicks((current) => [...current.slice(-349), nextTick(current[current.length - 1], market)]);
+        setTicks((current) => [...current.slice(-3599), nextTick(current[current.length - 1], market)]);
       }, market.speedMs);
     }
 
@@ -1050,7 +1050,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       socket.send(JSON.stringify({
         ticks_history: market.derivSymbol,
         adjust_start_time: 1,
-        count: 350,
+        count: 3600,
         end: "latest",
         style: "ticks",
         subscribe: 1,
@@ -1081,7 +1081,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         const historyTicks = response.history.prices
           .map((quote, index) => toTick(response.history?.times?.[index] ?? Math.floor(Date.now() / 1000), quote))
           .filter((tick, index, all) => index === 0 || tick.time > all[index - 1].time)
-          .slice(-350);
+          .slice(-3600);
         if (historyTicks.length > 0) {
           setTicks(historyTicks);
           setStreamStatus("live");
@@ -1094,7 +1094,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           const next = toTick(response.tick!.epoch, response.tick!.quote);
           const last = current[current.length - 1];
           if (last?.time === next.time) return [...current.slice(0, -1), next];
-          return [...current.slice(-349), next];
+          return [...current.slice(-3599), next];
         });
         setStreamStatus("live");
         setStreamError(null);
