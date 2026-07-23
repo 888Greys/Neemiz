@@ -92,6 +92,21 @@ export async function reconcileCryptoToOnChain(opts: {
     const ledgerLocked = Number(b.locked);
     const address = addrMap.get(addrKey(b.userId, b.crypto, b.network)) ?? null;
 
+    // No on-chain deposit address for this coin/network means the balance is
+    // NOT backed by a scanned deposit address — it was acquired internally
+    // (P2P merchant escrow, wallet transfer, admin credit). The reconcile only
+    // clamps deposit-address holdings; clamping an internal balance to 0 wrongly
+    // claws back legitimately-acquired crypto (e.g. a P2P purchase). SKIP it.
+    if (!address) {
+      return {
+        userId: b.userId, username: b.user.username, email: b.user.email,
+        crypto: b.crypto, network: b.network, address: null,
+        ledgerAvailable, ledgerLocked, onChain: 0,
+        newAvailable: ledgerAvailable, delta: 0,
+        skipped: true, skipReason: "no_deposit_address",
+      } satisfies ReconcileRow;
+    }
+
     let onChain = 0;
     if (address) {
       const fetched = await tryGetOnChainBalance(address, b.crypto, b.network);
