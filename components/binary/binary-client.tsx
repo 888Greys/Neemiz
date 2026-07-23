@@ -655,7 +655,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
   };
 
   return (
-    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#151518] sm:min-h-[260px] lg:min-h-0">
+    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#151518] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Dashed price stub — runs from the live dot to the right edge only (the
