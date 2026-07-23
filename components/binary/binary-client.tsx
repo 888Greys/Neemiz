@@ -2352,7 +2352,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 md:grid md:gap-0 md:overflow-hidden md:border-b md:border-white/[0.08] ${
           railOpen
             ? "xl:grid-cols-[280px_minmax(0,1fr)_minmax(300px,340px)]"
-            : "md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] xl:grid-cols-[44px_minmax(0,1fr)_minmax(300px,340px)]"
+            : "md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]"
         }`}
       >
         {pickerOpen && (
