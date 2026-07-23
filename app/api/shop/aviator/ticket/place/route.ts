@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   let roundId = body.roundId;
   if (!roundId) {
     const latestRound = await db.aviatorRound.findFirst({
-      where: { state: { in: ["WAITING", "BETTING_OPEN", "FLYING"] } },
+      where: { state: { in: ["WAITING", "BETTING", "FLYING"] } },
       orderBy: { createdAt: "desc" },
       select: { id: true, roundNumber: true },
     });
