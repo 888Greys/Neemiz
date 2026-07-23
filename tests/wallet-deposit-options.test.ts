@@ -42,34 +42,34 @@ describe("wallet deposit options", () => {
       network: "POLYGON",
       displayNet: "Polygon",
     });
-    // Live assets: the three stables/BTC plus native TRX (self-paying, signer live).
-    expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled)).toEqual([
-      expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true }),
-      expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true }),
-      expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true }),
-      expect.objectContaining({ code: "TRX", network: "TRC20", enabled: true }),
+    // Live rails: Polygon+BSC stables, native BTC/TRX, and the EVM natives
+    // ETH/BNB/POL (deposit + withdraw via the shared EVM address + signer).
+    const live = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled).map((a) => `${a.code}:${a.network}`);
+    expect(live).toEqual([
+      "USDT:POLYGON", "USDT:BEP20", "USDC:POLYGON", "BTC:BITCOIN", "TRX:TRC20",
+      "ETH:ERC20", "BNB:BEP20", "POL:POLYGON",
     ]);
   });
 
-  it("keeps the still-unwired natives as coming soon (never live until wired)", () => {
-    const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code);
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
-      expect(soon).toContain(code);
-    }
-    // TRX is now live, so it must NOT be in the soon set.
-    expect(soon).not.toContain("TRX");
+  it("keeps the still-unwired natives (SOL/LTC/XRP/DOGE/BCH) as coming soon", () => {
+    const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code).sort();
+    expect(soon).toEqual(["BCH", "DOGE", "LTC", "SOL", "XRP"]);
+    // EVM natives are now live, not soon.
+    for (const code of ["ETH", "BNB", "POL", "TRX"]) expect(soon).not.toContain(code);
     // Every soon asset must be disabled (no accidental live listing).
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).every((a) => !a.enabled)).toBe(true);
   });
 
-  it("allows address generation for live rails only (TRX now included, others not)", () => {
-    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
-    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
+  it("has an address-generation allowlist for exactly the live rails", () => {
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toEqual(["POLYGON", "BEP20"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.TRX).toEqual(["TRC20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.ETH).toEqual(["ERC20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BNB).toEqual(["BEP20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.POL).toEqual(["POLYGON"]);
     // Still-unwired natives must have no address-generation allowlist entry yet.
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    for (const code of ["SOL", "LTC", "XRP", "DOGE", "BCH"]) {
       expect(VALID_CRYPTO_DEPOSIT_NETWORKS[code]).toBeUndefined();
     }
   });

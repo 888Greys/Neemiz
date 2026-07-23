@@ -106,7 +106,7 @@ export const DEPOSIT_METHOD_ROWS: DepositMethodRow[] = depositRowsForCurrency("K
 // See docs/NATIVE-CRYPTO-LISTING-PLAN.md.
 export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "Tether USD", code: "USDT", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
-  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: false, soon: true },
+  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: true, soon: false },
   { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
   { name: "Bitcoin", code: "BTC", network: "BITCOIN", displayNet: "Bitcoin", min: 0.0001, enabled: true, soon: false },
   // Native coins — fees paid in the coin itself.
@@ -115,9 +115,9 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   // routing; displayNet keeps it visually distinct from the USDT-TRC20 token.
   // LIVE: native-TRX signer deployed to soi 2026-07-10 (self-paying withdrawals).
   { name: "Tron", code: "TRX", network: "TRC20", displayNet: "Tron (native TRX)", min: 10, enabled: true, soon: false },
-  { name: "Ethereum", code: "ETH", network: "ETHEREUM", displayNet: "Ethereum", min: 0.001, enabled: false, soon: true },
-  { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: false, soon: true },
-  { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: false, soon: true },
+  { name: "Ethereum", code: "ETH", network: "ERC20", displayNet: "Ethereum (ERC-20)", min: 0.002, enabled: true, soon: false },
+  { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: true, soon: false },
+  { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: true, soon: false },
   { name: "Solana", code: "SOL", network: "SOLANA", displayNet: "Solana", min: 0.02, enabled: false, soon: true },
   { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: false, soon: true },
   { name: "XRP", code: "XRP", network: "XRPL", displayNet: "XRP Ledger", min: 1, enabled: false, soon: true },
@@ -126,8 +126,11 @@ export const CRYPTO_DEPOSIT_ASSETS = [
 ] as const;
 
 export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
-  USDT: ["POLYGON"],
+  USDT: ["POLYGON", "BEP20"],
   USDC: ["POLYGON"],
   BTC: ["BITCOIN"],
   TRX: ["TRC20"], // native TRX on Tron (self-paying)
+  ETH: ["ERC20"], // native ETH on Ethereum (self-paying)
+  BNB: ["BEP20"], // native BNB on BSC (self-paying)
+  POL: ["POLYGON"], // native POL on Polygon (self-paying)
 };

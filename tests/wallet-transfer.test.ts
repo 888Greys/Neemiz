@@ -80,7 +80,10 @@ describe("Wallet Transfer Rules", () => {
     // Sender is funded by default (a real deposit exists) so the deposit-to-
     // withdraw gate on the send side passes; the unfunded case is tested below.
     // Admin once-ever tests override this findFirst as needed.
-    mockTx.transaction.findFirst.mockResolvedValue({ id: "dep" } as any);
+    mockTx.transaction.findFirst.mockImplementation(async (args: any) => {
+      if (args?.where?.provider === "wallet_transfer") return null;
+      return { id: "dep" } as any;
+    });
 
     // Default Supabase mock user
     vi.mocked(createClient).mockResolvedValue({
