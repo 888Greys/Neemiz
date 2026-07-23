@@ -419,7 +419,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    const depositMin = wdLimit?.isAdmin ? 1 : 200;
+    const depositMin = wdLimit?.isAdmin ? 1 : 75;
     if (Number(amount) < depositMin) { setError(`Minimum deposit is KSh ${depositMin}.`); return; }
     setError(""); setLoading(true);
     try {
@@ -874,7 +874,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
-                      min={wdLimit?.isAdmin ? "1" : "200"}
+                      min={wdLimit?.isAdmin ? "1" : "75"}
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -888,11 +888,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh {wdLimit?.isAdmin ? "1" : "200"}</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh {wdLimit?.isAdmin ? "1" : "75"}</p>
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-500/[0.08] px-3 py-2 ring-1 ring-emerald-500/20">
                     <Icon name="redeem" className="mt-px text-[15px] text-emerald-400" />
                     <p className="text-[11px] font-semibold leading-4 text-emerald-300">
-                      First deposit? Get a <span className="font-black">25% bonus</span> to play with — deposit KSh 200, play with KSh 250.
+                      First deposit? Get a <span className="font-black">25% bonus</span> to play with — deposit KSh 75, play with KSh 93.75.
                     </p>
                   </div>
                 </div>
@@ -1190,7 +1190,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         <span className="text-2xl font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
-                          min={wdLimit?.isAdmin ? "1" : "100"}
+                          min={wdLimit?.isAdmin ? "1" : "200"}
                           max={wdLimit?.isAdmin ? "150000" : "500"}
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
@@ -1246,7 +1246,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= (wdLimit?.isAdmin ? 1 : 100) ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""}`
+                        `Withdraw${wdAmount && Number(wdAmount) >= (wdLimit?.isAdmin ? 1 : 200) ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""}`
                       )}
                     </Button>
                     <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
@@ -2657,4 +2657,5 @@ function CryptoDepositPanel({
     </div>
   );
 }
+
 

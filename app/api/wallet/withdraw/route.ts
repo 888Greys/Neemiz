@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
     // Admins can withdraw from KSh 1 (cheap live STK/B2C testing), same as deposits.
-    const minimumWithdrawal = dbUser.isAdmin ? 1 : 100;
+    const minimumWithdrawal = dbUser.isAdmin ? 1 : 200;
     // Daily cap: a user may withdraw at most this much across the day's M-Pesa
     // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
     const limit = dailyLimitKes();

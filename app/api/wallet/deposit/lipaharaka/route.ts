@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   // Admins can deposit as low as KSh 1 (cheap live testing of the STK/credit
   // flow); everyone else keeps the KSh 200 minimum. Lipa's own STK floor is 1.
   const isAdmin = isOwnerEmail(user.email) || Boolean((dbUser as { isAdmin?: boolean }).isAdmin);
-  const minAmount = isAdmin ? 1 : 200;
+  const minAmount = isAdmin ? 1 : 75;
   if (!Number.isInteger(amount) || amount < minAmount || amount > 150_000) {
     return Response.json({ error: `Amount must be a whole number between KSh ${minAmount} and KSh 150,000` }, { status: 400 });
   }
