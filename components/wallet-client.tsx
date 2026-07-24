@@ -419,7 +419,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    const depositMin = wdLimit?.isAdmin ? 1 : 75;
+    const depositMin = wdLimit?.isAdmin ? 1 : 50;
     if (Number(amount) < depositMin) { setError(`Minimum deposit is KSh ${depositMin}.`); return; }
     setError(""); setLoading(true);
     try {
@@ -874,7 +874,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
-                      min={wdLimit?.isAdmin ? "1" : "75"}
+                      min={wdLimit?.isAdmin ? "1" : "50"}
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
