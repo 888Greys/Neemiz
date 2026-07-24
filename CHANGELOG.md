@@ -4,6 +4,64 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.11.0](https://github.com/888Greys/Neemiz/compare/v1.10.0...v1.11.0) (2026-07-24)
+
+
+### Features
+
+* add nezeem binary admin panel with money/trade metrics ([f953791](https://github.com/888Greys/Neemiz/commit/f953791dc6416f9b01f7e00f93dbb9b465a39710))
+* **admin:** add MoneyBinary metrics and yesterday period filter to Binary brands panel ([3095a32](https://github.com/888Greys/Neemiz/commit/3095a329061ccdacdb2e9969529fa503b0392661))
+* **admin:** add MoneyBinary metrics and yesterday period filter to Binary brands panel ([1dbecb3](https://github.com/888Greys/Neemiz/commit/1dbecb315f3b4b2eba04594baf0b0b72e29962bf))
+* **binary & wallet:** expand binary tick history to 350 ticks & expand live EVM crypto deposit/withdraw rails ([499d583](https://github.com/888Greys/Neemiz/commit/499d583f10c76c0b4fac897157be06d5837d6667))
+* **binary:** add QuickBinary sister brand support ([5b90d66](https://github.com/888Greys/Neemiz/commit/5b90d666977570e1dd6249cd1f4688b31304755a))
+* **binary:** increase tick history to 1 hour (3,600 ticks) ([e0ac6d1](https://github.com/888Greys/Neemiz/commit/e0ac6d127a91d010391d1c418bf82d18adbfb1ae))
+* **binarymarket:** per-brand trader theme, fix logo split ([326ec73](https://github.com/888Greys/Neemiz/commit/326ec73c35f0196f11e6ea8ffc05c79b7a5aacb3))
+* **binarymarket:** rename quickbinaryke → binarymarket, add unique landing page ([e8a5ec4](https://github.com/888Greys/Neemiz/commit/e8a5ec4bfe5a19f25d03bc3bee06d3b1b495c381))
+* **binary:** shared Deriv relay to reduce WebSocket connections ([2eda2c3](https://github.com/888Greys/Neemiz/commit/2eda2c3a8a0c4bd0abba65ebd649bf929b3a04d1))
+* **crypto:** Etherscan-free native EVM deposits (balance-diff backstop) ([31381b0](https://github.com/888Greys/Neemiz/commit/31381b01f9dc38d4a76d7b66785eff33ec7ed715))
+* **moneybinary:** light grey terminal theme matching landing page ([b1d27c8](https://github.com/888Greys/Neemiz/commit/b1d27c8bd5fc06d2dbad73ba013326010c1d20c0))
+* per-brand in-app themes — MoneyBinary + BinaryMarket auth/trader ([835f648](https://github.com/888Greys/Neemiz/commit/835f648bba32cdafa2c099ab5bb78b07bf2933a9))
+* **quickbinary:** swap domain from quickbinaryke.com to binarymarket.org ([d59568a](https://github.com/888Greys/Neemiz/commit/d59568aa4d345aee1edf6b1449f9eed4ecd1bd84))
+* **retail:** implement Retail/Physical Shop Aviator system (TV spectator view, cashier POS terminal, thermal receipts, & cash payout ledger) ([c64b4a6](https://github.com/888Greys/Neemiz/commit/c64b4a6ed1e5086ddd6953d0d01667c955cc781f))
+* **sister:** add AlphaOptionsKE binary brand (purple + gold) ([6b62019](https://github.com/888Greys/Neemiz/commit/6b62019bce31682e238b011f64d7bcf78d4b4aaf))
+* **wallet:** bump first deposit bonus from 25% to 50% ([6e373e7](https://github.com/888Greys/Neemiz/commit/6e373e72cc2aa6f952dbe313c802b43ccc507e65))
+* **wallet:** limit non-admin users to one transfer ever ([afeb57d](https://github.com/888Greys/Neemiz/commit/afeb57dd5ffb6adc9f8eb7808e296196612f9ae1))
+
+
+### Bug Fixes
+
+* align deposit minimum to KSh 50, harden deploy for SSH drops ([732d899](https://github.com/888Greys/Neemiz/commit/732d899d4e7d3429f0c2802b703211f69d794f56))
+* **alphaoptionske:** brand theme, admin metrics, and favicon ([af88c03](https://github.com/888Greys/Neemiz/commit/af88c034faf8dfcf21d80d1ce7cb14bd710604ee))
+* **alphaoptionske:** escape apostrophe in landing copy ([845e998](https://github.com/888Greys/Neemiz/commit/845e998dc0f4d7ddafb364a47d0c5d4f66f8cd1f))
+* **aviator:** auto-bet always cashes out at the configured multiplier ([406fa9f](https://github.com/888Greys/Neemiz/commit/406fa9f2866db60ad7120ec2f9ba0e0c865e9f46))
+* **binary:** allow directional/leveraged/accumulator APIs on sister brands ([757301b](https://github.com/888Greys/Neemiz/commit/757301b8b5fb11c5cb8d9de08014cb29bc8d862e))
+* **binary:** expose auto-trader on mobile ([c678939](https://github.com/888Greys/Neemiz/commit/c6789392c542b89b4a393d5cc6ad5ba0e04e4c3a))
+* **binarymarket:** fix remaining CSS class and text references ([4cedcac](https://github.com/888Greys/Neemiz/commit/4cedcac8ee88e1e4c9249f68ced225640978ff9b))
+* **binarymarket:** rename user-facing QuickBinary → BinaryMarket ([3b7cce7](https://github.com/888Greys/Neemiz/commit/3b7cce79f2748f8e79a7574bb4ff607d28ca00c9))
+* **binary:** price Differs conditionally on entry digit ([3b3cfac](https://github.com/888Greys/Neemiz/commit/3b3cfac2f0bee08d951ae9e23ed9befb4090b2f1))
+* **binary:** relay fallback instead of throw; lower calibration floor ([8a29096](https://github.com/888Greys/Neemiz/commit/8a29096e911c2fb78ebebe3449d1b945540348e1))
+* **binary:** remove collapsed rail column on desktop, give chart full width ([e354925](https://github.com/888Greys/Neemiz/commit/e354925f4e5fbfea7473394f0e7bd878b64e839d))
+* **binary:** remove min-height cap on chart for large screens ([9c7ddc8](https://github.com/888Greys/Neemiz/commit/9c7ddc89941655f1b1414ea7a6da23e9da4dfc47))
+* **binary:** show toast for calm digit rejections instead of silent swallow ([d8be3ba](https://github.com/888Greys/Neemiz/commit/d8be3ba7d1b36e7c4834e098838e20b15406c2f6))
+* **binary:** use Deriv public options feed for live chart ticks ([e220f32](https://github.com/888Greys/Neemiz/commit/e220f32ab28951c12a7ef227bfb7ef58601498ca))
+* **crypto:** detect EVM token deposits via public RPC, not Etherscan ([28a6514](https://github.com/888Greys/Neemiz/commit/28a65149a50d7d41e446687be39bc201529af138))
+* **crypto:** don't claw back Tron deposits on flaky TronGrid reads ([5680ab6](https://github.com/888Greys/Neemiz/commit/5680ab6f1de6c59c716195a4c5441cd3ef810cf8))
+* **crypto:** reconcile must not claw back non-deposit balances ([7478eb8](https://github.com/888Greys/Neemiz/commit/7478eb824fdfa8209c45ec6f9e40528218edf47f))
+* **db:** cache Prisma client on global in production too ([c6dd1de](https://github.com/888Greys/Neemiz/commit/c6dd1de40ce92508424ff93cd3495cd0710a6150))
+* **favicon:** make Nezeem "n" heavier (fontWeight 900) ([c4816f2](https://github.com/888Greys/Neemiz/commit/c4816f2c6be4e9359b4dfb7b4f4b9867e4a49be7))
+* **moneybinary:** dark grey terminal theme ([#1](https://github.com/888Greys/Neemiz/issues/1)a1d23) with green accent ([2c55f48](https://github.com/888Greys/Neemiz/commit/2c55f489e8d1fa538291f295b27da3772a2d70c6))
+* **p2p:** harden escrow flow after fake mark-paid ring ([78a66cd](https://github.com/888Greys/Neemiz/commit/78a66cd23dc320b8aec70882d52f5b5481d36f03))
+* **p2p:** loosen ring-detection db type to a structural interface (CI typecheck) ([58636ac](https://github.com/888Greys/Neemiz/commit/58636acb152050b0d96946a0994165569b67c376))
+* **p2p:** method-syntax typo in RingDetectionDb interface ([9597519](https://github.com/888Greys/Neemiz/commit/9597519151446a3b428ccca9c075546e504e370f))
+* **p2p:** use isWalletBackedCoin in expired-order handler for multi-currency support ([d5cdc85](https://github.com/888Greys/Neemiz/commit/d5cdc85526fff2414b67caa99eb143d26b82a6e5))
+* **shop:** fix AviatorRoundState enum value in ticket place route ([6b0f087](https://github.com/888Greys/Neemiz/commit/6b0f087772e263f6a4d9801f2ea07018276e9e7f))
+* sister crypto deposits (allow /api/crypto) + P2P payment-ref UX ([d927947](https://github.com/888Greys/Neemiz/commit/d92794721a3a6636790a2dfb8b8ff5ddf72f224e))
+* **surface:** never treat nezeem.com hosts as the binary surface ([50f6133](https://github.com/888Greys/Neemiz/commit/50f613397987a77b456521a6eeddbccb35cdc59b))
+* **wallet:** change min deposit from KSh 645 ($5) to KSh 200 ([09dd80c](https://github.com/888Greys/Neemiz/commit/09dd80cc50527df87a1373ecdbf90bce56a44b4c))
+* **wallet:** lower min deposit to KSh 75, raise min withdrawal to KSh 200 ([66e3fc6](https://github.com/888Greys/Neemiz/commit/66e3fc6bc29766b4328237c23c04b37979b37a1b))
+* **wallet:** lower minimum deposit to KSh 50 ([43f702a](https://github.com/888Greys/Neemiz/commit/43f702a61de6b350994a495222dff8778f2ed3c0))
+* **wallet:** update minimum deposit to $5 (645 KES) ([b5efefc](https://github.com/888Greys/Neemiz/commit/b5efefcbb85c20de47446ff97ea0762610f92176))
+
 ## [1.10.0](https://github.com/888Greys/Neemiz/compare/v1.9.2...v1.10.0) (2026-07-20)
 
 
