@@ -136,6 +136,8 @@ export function isBinaryAllowedPath(pathname: string): boolean {
     "/login",
     "/sign-in",
     "/sign-up",
+    "/dev-login",
+    "/api/dev-auth",
     "/sso-callback",
     "/auth",
     "/dashboard",

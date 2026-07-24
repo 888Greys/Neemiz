@@ -13,10 +13,10 @@ import type { TickPoint } from "neemiz-binary-engine";
 export type FeedTick = TickPoint;
 
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
-const RING_SIZE = 300;
+const RING_SIZE = 1000;
 /** Latest-tick freshness bound — reject if older (fail closed). */
 export const FEED_FRESHNESS_MS = 5_000;
-const HISTORY_WARM_COUNT = 300;
+const HISTORY_WARM_COUNT = 1000;
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_MAX_MS = 20_000;
 

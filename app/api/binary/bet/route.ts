@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
   }
 
-  if (marketPrices.length < 500)
+  if (marketPrices.length < 50)
     return Response.json({ error: "Not enough market data, try again" }, { status: 503 });
 
   // Derive entry digit from the server-authoritative live spot

@@ -667,7 +667,15 @@ export function BinaryKeAuthPage({ initialTab = "login" }: Props) {
                 <div className="h-px flex-1 bg-white/[0.08]" />
               </div>
 
-              {!DEV_AUTH_PUBLIC && (
+              {DEV_AUTH_PUBLIC ? (
+                <Link
+                  href="/dev-login"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500/20 py-2.5 text-[13px] font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/30"
+                >
+                  <Icon name="developer_mode" className="text-[18px]" />
+                  Local Dev Accounts (/dev-login)
+                </Link>
+              ) : (
                 <button type="button" onClick={handleOAuth} disabled={loading} className="bok-auth-social">
                   <GoogleIcon />
                   Continue with Google

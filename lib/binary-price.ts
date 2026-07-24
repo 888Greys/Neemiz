@@ -63,11 +63,14 @@ export async function getServerTickHistory(
 
   // Relay path — binary sister containers talk to Nezeem's single feed
   if (RELAY_URL) {
-    const relayRes = await fetchFromRelay<TickPoint[]>(
-      `?action=history&symbol=${encodeURIComponent(symbol)}&startEpoch=${startEpoch}&count=${count}`,
-    );
-    if (relayRes && relayRes.length > 0) return relayRes;
-    throw new Error(`Relay history unavailable for ${symbol}`);
+    try {
+      const relayRes = await fetchFromRelay<TickPoint[]>(
+        `?action=history&symbol=${encodeURIComponent(symbol)}&startEpoch=${startEpoch}&count=${count}`,
+      );
+      if (relayRes && relayRes.length > 0) return relayRes;
+    } catch (err) {
+      console.warn(`[binary-price] Relay history fetch failed for ${symbol}, falling back to direct feed`, err);
+    }
   }
 
   // Local feed path — Nezeem container
@@ -83,13 +86,16 @@ export async function getLiveEntrySpot(symbol: string): Promise<{ spot: number; 
   if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
 
   if (RELAY_URL) {
-    const relayRes = await fetchFromRelay<{ price: number; epoch: number }>(
-      `?action=tick&symbol=${encodeURIComponent(symbol)}`,
-    );
-    if (relayRes && Number.isFinite(relayRes.price) && relayRes.price > 0) {
-      return { spot: relayRes.price, epoch: relayRes.epoch };
+    try {
+      const relayRes = await fetchFromRelay<{ price: number; epoch: number }>(
+        `?action=tick&symbol=${encodeURIComponent(symbol)}`,
+      );
+      if (relayRes && Number.isFinite(relayRes.price) && relayRes.price > 0) {
+        return { spot: relayRes.price, epoch: relayRes.epoch };
+      }
+    } catch (err) {
+      console.warn(`[binary-price] Relay tick fetch failed for ${symbol}, falling back to direct feed`, err);
     }
-    throw new Error(`Relay tick unavailable for ${symbol}`);
   }
 
   startDerivFeed();
@@ -97,8 +103,18 @@ export async function getLiveEntrySpot(symbol: string): Promise<{ spot: number; 
   if (live) return { spot: live.price, epoch: live.epoch };
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const hist = await derivClient.fetchTickHistory(symbol, nowSec - 30, 5);
-  const last = hist[hist.length - 1];
+  try {
+    const hist = await derivClient.fetchTickHistory(symbol, nowSec - 30, 10);
+    const last = hist[hist.length - 1];
+    if (last && Number.isFinite(last.price) && last.price > 0) {
+      return { spot: last.price, epoch: last.epoch };
+    }
+  } catch (err) {
+    console.warn(`[binary-price] fetchTickHistory failed for ${symbol}, trying wide search`, err);
+  }
+
+  const fallbackHist = await derivClient.fetchTickHistory(symbol, nowSec - 300, 10);
+  const last = fallbackHist[fallbackHist.length - 1];
   if (!last || !Number.isFinite(last.price) || last.price <= 0) throw new Error(`No live entry tick for ${symbol}`);
   return { spot: last.price, epoch: last.epoch };
 }

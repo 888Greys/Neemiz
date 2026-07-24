@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { COMPANY } from "@/lib/company";
 import { useSiteConfig } from "@/lib/site-config-context";
+import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import "./landing.css";
 
 const bokDisplay = Syne({
@@ -122,6 +123,14 @@ export function BinaryKeLandingPage() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {DEV_AUTH_PUBLIC && (
+              <Link
+                href="/dev-login"
+                className="rounded-full bg-amber-500/20 px-3 py-1.5 text-[12px] font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/30"
+              >
+                Dev Login
+              </Link>
+            )}
             <Link
               href="/sign-in"
               className="hidden text-[13px] font-bold text-white/90 transition hover:text-white sm:inline"

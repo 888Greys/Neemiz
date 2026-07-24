@@ -138,6 +138,7 @@ async function main() {
     await db.p2PAd.deleteMany({});
     await db.p2PPaymentMethod.deleteMany({});
     await db.p2PCryptoBalance.deleteMany({});
+    await db.p2PCryptoDeposit.deleteMany({});
     await db.merchantProfile.deleteMany({});
     console.log("  ✓ cleared previous P2P data");
 
