@@ -1,4 +1,4 @@
-// Server-side binary (synthetic index) tick source.
+// Server-side binary (synthetic index) tick source — relay → local → direct fallback.
 //
 // SECURITY: binary settlement must NEVER trust a client-supplied exit digit, and
 // it must NEVER settle on "the latest live tick" — that let a player watch the
